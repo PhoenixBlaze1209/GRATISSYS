@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard - Gratis Attendance</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="flex bg-gray-100 min-h-screen">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-gradient-to-b from-red-600 to-rose-600 text-white flex flex-col p-6 fixed h-screen">
+    <h2 class="text-2xl font-extrabold mb-8">Gratis Admin</h2>
+    <nav class="flex flex-col space-y-4">
+      <a href="{{ url_for('admin_dashboard') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📊 Dashboard</a>
+      <a href="{{ url_for('view_pending') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📝 Pending Registration</a>
+      <a href="{{ url_for('view_logs') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📑 View Logs & Print</a>
+      <a href="{{ url_for('logoutA') }}" class="mt-auto bg-white text-red-600 font-semibold px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition">🚪 Logout</a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="ml-64 p-8 flex-1">
+    
+    <!-- Dashboard Header -->
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Admin Dashboard</h1>
+
+    <!-- Student Type Filters -->
+    <div class="flex gap-4 mb-6">
+      <a href="{{ url_for('admin_dashboard', filter='S.T.A.R.S') }}" 
+         class="px-4 py-2 rounded-lg border {{ 'bg-red-500 text-white' if selected_type == 'S.T.A.R.S' else 'bg-white text-gray-700' }} shadow hover:shadow-md transition">
+        S.T.A.R.S
+      </a>
+      <a href="{{ url_for('admin_dashboard', filter='S.A') }}" 
+         class="px-4 py-2 rounded-lg border {{ 'bg-red-500 text-white' if selected_type == 'S.A' else 'bg-white text-gray-700' }} shadow hover:shadow-md transition">
+        S.A
+      </a>
+      <a href="{{ url_for('admin_dashboard', filter='CS') }}" 
+         class="px-4 py-2 rounded-lg border {{ 'bg-red-500 text-white' if selected_type == 'CS' else 'bg-white text-gray-700' }} shadow hover:shadow-md transition">
+        CS
+      </a>
+    </div>
+
+    <!-- Students In/Out Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div class="bg-white rounded-xl shadow p-6 text-center">
+        <h2 class="text-lg font-semibold text-gray-600">Students In</h2>
+        <p class="text-3xl font-bold text-red-600">{{ students_in }}</p>
+      </div>
+      <div class="bg-white rounded-xl shadow p-6 text-center">
+        <h2 class="text-lg font-semibold text-gray-600">Students Out</h2>
+        <p class="text-3xl font-bold text-red-600">{{ students_out }}</p>
+      </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="bg-white rounded-xl shadow overflow-x-auto">
+      <table class="w-full text-sm text-left border-collapse">
+        <thead class="bg-red-500 text-white">
+          <tr>
+            <th class="px-4 py-3">Student ID</th>
+            <th class="px-4 py-3">Student Name</th>
+            <th class="px-4 py-3">Date</th>
+            <th class="px-4 py-3">Year & Program</th>
+            <th class="px-4 py-3">Assigned Duty</th>
+            <th class="px-4 py-3">Time In</th>
+            <th class="px-4 py-3">Time Out</th>
+            <th class="px-4 py-3">Total Duty Hours</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in attendance %}
+          <tr class="border-b hover:bg-gray-50">
+            <td class="px-4 py-2">{{ record.student_number }}</td>
+            <td class="px-4 py-2">{{ record.full_name }}</td>
+            <td class="px-4 py-2">{{ record.date }}</td>
+            <td class="px-4 py-2">{{ record.year_level }}, {{ record.program }}</td>
+            <td class="px-4 py-2">{{ record.assigned_duty }}</td>
+            <td class="px-4 py-2">{{ record.time_in }}</td>
+            <td class="px-4 py-2">{{ record.time_out }}</td>
+            <td class="px-4 py-2">{{ record.total_hours }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+</body>
+</html>

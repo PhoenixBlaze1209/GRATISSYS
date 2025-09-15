@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard - Gratis Attendance</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-rose-200 via-red-300 to-rose-500 min-h-screen flex items-center justify-center font-sans">
+
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-5xl p-6 relative">
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="px-4 py-3 rounded-lg text-sm font-medium
+            {% if category == 'success' %} bg-green-100 text-green-700 border border-green-300
+            {% elif category == 'error' %} bg-red-100 text-red-700 border border-red-300
+            {% else %} bg-gray-100 text-gray-700 border border-gray-300 {% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% endwith %}
+
+    <!-- Header -->
+    <div class="flex justify-between items-center border-b pb-4 mb-6">
+      <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+        🎓 Student Dashboard
+      </h1>
+      <a href="{{ url_for('logoutS') }}" 
+         class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow-md transition">
+         Logout
+      </a>
+    </div>
+
+    <!-- Student Info -->
+    <div class="bg-gray-100 p-4 rounded-lg flex flex-wrap gap-4 text-gray-700 mb-6">
+      <span><strong>{{ student.full_name }}</strong></span>
+      <span>|</span>
+      <span>{{ student.student_number }}</span>
+      <span>|</span>
+      <span>{{ student.student_type }}</span>
+      <span>|</span>
+      <span>{{ student.assigned_duty }}</span>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex gap-4 mb-6">
+      <!-- Time In -->
+      <form action="{{ url_for('time_in') }}" method="POST">
+        <button type="submit" 
+          class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+          {% if today_record and today_record.time_in %}disabled{% endif %}>
+          Time In
+        </button>
+      </form>
+
+      <!-- Time Out -->
+      <form action="{{ url_for('time_out') }}" method="POST">
+        <button type="submit" 
+          class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+          {% if not today_record or not today_record.time_in or today_record.time_out %}disabled{% endif %}>
+          Time Out
+        </button>
+      </form>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="overflow-x-auto">
+      <table class="min-w-full border border-gray-200 rounded-lg shadow-sm text-sm">
+        <thead class="bg-gray-200 text-gray-700">
+          <tr>
+            <th class="py-2 px-4 border">Date (MM/DD/YYYY)</th>
+            <th class="py-2 px-4 border">Assigned Duty</th>
+            <th class="py-2 px-4 border">Time In</th>
+            <th class="py-2 px-4 border">Time Out</th>
+            <th class="py-2 px-4 border">Total Duty Hours</th>
+          </tr>
+        </thead>
+        <tbody class="text-center">
+          {% for record in attendance %}
+          <tr class="hover:bg-gray-50">
+            <td class="py-2 px-4 border">{{ record.date }}</td>
+            <td class="py-2 px-4 border">{{ record.assigned_duty }}</td>
+            <td class="py-2 px-4 border">{{ record.time_in }}</td>
+            <td class="py-2 px-4 border">{{ record.time_out or '--' }}</td>
+            <td class="py-2 px-4 border">{{ record.total_hours or '--' }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="py-4 text-gray-500">No attendance records yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Note -->
+    <p class="text-xs text-gray-600 mt-4 italic">
+      ⏰ Note: 12:00 PM – 1:00 PM is not recorded as it is break time.
+    </p>
+  </div>
+
+  <!-- Flash auto-hide -->
+  <script>
+    setTimeout(function() {
+      document.querySelectorAll('.flash-message').forEach(el => el.style.display = 'none');
+    }, 2500);
+  </script>
+
+</body>
+</html>

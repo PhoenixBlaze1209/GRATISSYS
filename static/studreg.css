@@ -1,0 +1,121 @@
+    body {
+        background: linear-gradient(135deg, #ff6b6b, #c7b299);
+        min-height: 100vh;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .flash {
+        padding: 12px 15px;
+        margin-bottom: 15px;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 500;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: opacity 0.5s;
+    }
+
+    .flash.danger {
+        background: #e74c3c;
+        color: #fff;
+        border: 1px solid #c0392b;
+    }
+
+    .flash.success {
+        background: #2ecc71;
+        color: #fff;
+        border: 1px solid #27ae60;
+    }
+
+    .flash.info {
+        background: #3498db;
+        color: #fff;
+        border: 1px solid #2980b9;
+    }
+
+    .main-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+    }
+
+    .form-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        max-width: 400px;
+        width: 100%;
+        margin: 0 auto;
+    }
+    a {
+        text-decoration: none;
+        color: #007BFF;
+        font-weight: bold;
+        transition: color 0.2s ease-in-out;
+    }
+
+    a:hover {
+        color: #0056b3;
+        text-decoration: underline;
+    }    
+    .form-title {
+        text-align: center;
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 30px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        color: #555;
+        margin-bottom: 8px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        font-size: 16px;
+        transition: border-color 0.3s ease;
+        box-sizing: border-box;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #ff6b6b;
+        box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+    }
+
+    .btn-primary {
+        width: 100%;
+        padding: 15px;
+        background: linear-gradient(45deg, #ff6b6b, #ff5252);
+        border: none;
+        border-radius: 25px;
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 20px;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+    }

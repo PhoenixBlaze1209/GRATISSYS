@@ -1,0 +1,94 @@
+body {
+    margin: 0;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(120deg, #e85a5a, #b9b3a9);
+}
+
+.navbar {
+    display: flex;
+    background: linear-gradient(135deg, #ff6b6b, #ff5252);
+    padding: 10px;
+}
+
+.navbar a {
+    color: white;
+    text-decoration: none;
+    padding: 10px 15px;
+    margin-right: 5px;
+    font-weight: bold;
+}
+
+.navbar a:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.logout {
+    background: darkred;
+    border-radius: 5px;
+}
+
+.dashboard-title {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 24px;
+}
+
+.filters {
+    display: flex;
+    justify-content: center;
+    margin: 15px 0;
+}
+
+.filter-btn {
+    background: white;
+    border: 1px solid #ccc;
+    padding: 10px 20px;
+    margin: 0 5px;
+    text-decoration: none;
+    color: black;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.filter-btn.active {
+    background: #4caf50;
+    color: white;
+}
+
+.stats {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: white;
+    margin: 0 10px;
+    padding: 20px;
+    text-align: center;
+    border-radius: 6px;
+    min-width: 150px;
+}
+
+.stat-card h2 {
+    margin-bottom: 10px;
+}
+
+.attendance-table {
+    width: 90%;
+    margin: auto;
+    border-collapse: collapse;
+    background: white;
+}
+
+.attendance-table th, .attendance-table td {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+}
+
+.attendance-table th {
+    background: #e57373;
+    color: white;
+}

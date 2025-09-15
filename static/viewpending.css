@@ -1,0 +1,218 @@
+body {
+    margin: 0;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(120deg, #e85a5a, #b9b3a9);
+}
+
+/* NAVBAR */
+.navbar {
+    display: flex;
+    background: linear-gradient(135deg, #ff6b6b, #ff5252);
+    padding: 10px;
+}
+
+.navbar a {
+    color: white;
+    text-decoration: none;
+    padding: 10px 15px;
+    margin-right: 5px;
+    font-weight: bold;
+    border-radius: 5px;
+}
+
+.navbar a:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.logout {
+    background: darkred;
+    border-radius: 5px;
+}
+
+/* PAGE TITLE */
+.dashboard-title {
+    text-align: center;
+    margin: 20px 0;
+    font-size: 24px;
+    color: white;
+    font-weight: bold;
+}
+
+/* TABLE */
+.pending-table {
+    width: 90%;
+    margin: auto;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.pending-table th, .pending-table td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.pending-table th {
+    background: #e57373;
+    color: white;
+    text-transform: uppercase;
+}
+
+.pending-table tr:nth-child(even) {
+    background: #f9f9f9;
+}
+
+.pending-table tr:hover {
+    background: #ffecec;
+}
+
+/* BUTTONS */
+.action-btn {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.approve-btn {
+    background: linear-gradient(to right, #4caf50, #2e7d32);
+    color: white;
+}
+
+.approve-btn:hover {
+    background: linear-gradient(to right, #43a047, #1b5e20);
+    transform: translateY(-2px);
+}
+
+.reject-btn {
+    background: linear-gradient(to right, #e53935, #b71c1c);
+    color: white;
+    margin-left: 5px;
+}
+
+.reject-btn:hover {
+    background: linear-gradient(to right, #d32f2f, #7f0000);
+    transform: translateY(-2px);
+}
+
+/* MODAL BACKDROP */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    justify-content: center;
+    align-items: center;
+}
+
+/* Modal background */
+.modal {
+  display: none; /* hidden by default */
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5); /* semi-transparent overlay */
+  justify-content: center;
+  align-items: center;
+}
+
+/* Modal box */
+.modal-content {
+  background: #fff;
+  padding: 25px;
+  border-radius: 12px;
+  width: 400px;
+  max-width: 90%;
+  text-align: center;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+  animation: fadeIn 0.3s ease;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  color: #e53935;
+  font-size: 22px;
+}
+
+.modal-content p {
+  font-size: 15px;
+  margin: 15px 0 25px;
+  color: #555;
+}
+
+/* Buttons inside modal */
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.btn-cancel,
+.btn-confirm {
+  flex: 1;
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+/* Cancel button */
+.btn-cancel {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.btn-cancel:hover {
+  background: #d6d6d6;
+}
+
+/* Confirm Reject button */
+.btn-confirm {
+  background: linear-gradient(135deg, #ff5252, #e53935);
+  color: #fff;
+}
+
+.btn-confirm:hover {
+  opacity: 0.9;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
+.confirm-btn {
+    background: linear-gradient(to right, #e53935, #b71c1c);
+    color: white;
+}
+
+.confirm-btn:hover {
+    background: linear-gradient(to right, #d32f2f, #7f0000);
+}
+
+.cancel-btn {
+    background: #ccc;
+}
+
+.cancel-btn:hover {
+    background: #aaa;
+}

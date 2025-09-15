@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Student Registration - Gratis Attendance</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen flex bg-gradient-to-br from-rose-300 via-red-400 to-rose-600 bg-fixed">
+
+  <!-- Left Side (Branding / Illustration) -->
+  <div class="hidden md:flex w-1/2 items-center justify-center p-8 text-white">
+    <div class="max-w-md text-center">
+      <h1 class="text-4xl font-bold mb-4">Welcome to Gratis Attendance</h1>
+      <p class="text-lg opacity-90 mb-6">
+        Register as a student and start tracking your attendance with ease.
+      </p>
+      <!-- Optional Illustration -->
+<img src="https://cdn-icons-png.flaticon.com/512/1048/1048948.png" 
+     alt="Academic Cap" 
+     class="w-64 mx-auto opacity-90 drop-shadow-lg">
+
+
+
+    </div>
+  </div>
+
+  <!-- Right Side (Registration Form) -->
+  <div class="flex w-full md:w-1/2 items-center justify-center p-8">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
+
+      <!-- Title -->
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Student Registration</h2>
+
+      <!-- Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, msg in messages %}
+          <div class="mb-4 px-4 py-3 rounded-lg shadow text-sm
+            {% if category == 'success' %} bg-green-100 text-green-700
+            {% elif category == 'error' %} bg-red-100 text-red-700
+            {% else %} bg-gray-100 text-gray-700 {% endif %}">
+            {{ msg }}
+          </div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- Form -->
+      <form action="{{ url_for('register_student') }}" method="POST" class="space-y-4">
+
+        <!-- Full Name -->
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Full Name</label>
+          <input type="text" name="full_name" placeholder="Enter full name" required
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-400 outline-none">
+        </div>
+
+        <!-- Email -->
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Email Address</label>
+          <input type="email" name="email" placeholder="Enter email" required
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-400 outline-none">
+        </div>
+
+        <!-- Username -->
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Username</label>
+          <input type="text" name="username" placeholder="Enter username" required
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-400 outline-none">
+        </div>
+
+        <!-- Password -->
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Password</label>
+          <input type="password" name="password" placeholder="Enter password" required
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-400 outline-none">
+        </div>
+
+        <!-- Student Number -->
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Student Number</label>
+          <input type="text" name="student_number" placeholder="Enter student number" required
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-400 outline-none">
+        </div>
+
+        <!-- Year Level -->
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Year Level</label>
+          <select name="year_level" id="yearLevel" required
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-400 outline-none">
+            <option value="" disabled selected>Select year level</option>
+            <option value="1">1st Year</option>
+            <option value="2">2nd Year</option>
+            <option value="3">3rd Year</option>
+            <option value="4">4th Year</option>
+          </select>
+        </div>
+
+        <!-- Assigned Duty -->
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Assigned Duty</label>
+          <select name="assigned_duty" required
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-400 outline-none">
+            <option value="" disabled selected>Select Assigned Duty</option>
+            <option value="Housekeeping">Housekeeping</option>
+          </select>
+        </div>
+
+        <!-- Program -->
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Program</label>
+          <select name="program" required
+            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-400 outline-none">
+            <option value="" disabled selected>Select program</option>
+            <option value="BSIT">BSIT</option>
+            <option value="BSEntrep">BSEntrep</option>
+            <option value="BSA">BSA</option>
+            <option value="BSBA">BSBA</option>
+            <option value="BSEd">BSEd</option>
+            <option value="BEEd">BEEd</option>
+          </select>
+        </div>
+
+        <!-- Student Type -->
+      <div>
+        <label class="block text-gray-700 font-medium mb-2">Student Type</label>
+        <div class="space-y-2">
+          <label id="starsOption" class="flex items-center gap-2 hidden">
+            <input type="radio" name="student_type" value="S.T.A.R.S" class="accent-red-500">
+            <span>S.T.A.R.S (Housekeeping)</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="student_type" value="S.A" class="accent-red-500">
+            <span>S.A (Housekeeping)</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="student_type" value="CS" class="accent-red-500">
+            <span>CS</span>
+          </label>
+        </div>
+      </div>
+
+        <!-- Submit Button -->
+        <button type="submit"
+          class="w-full py-3 bg-red-500 text-white font-semibold rounded-lg shadow hover:bg-red-600 hover:scale-[1.02] transition">
+          Register
+        </button>
+      </form>
+
+      <!-- Already Registered -->
+      <p class="text-center text-gray-600 mt-4">
+        Already have an account? 
+        <a href="{{ url_for('student_login') }}" class="text-red-600 font-semibold hover:underline">Sign in</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- Flash hide script -->
+  <script>
+      document.getElementById("yearLevel").addEventListener("change", function() {
+    const starsOption = document.getElementById("starsOption");
+    if (this.value === "4") {
+      starsOption.classList.remove("hidden");
+    } else {
+      starsOption.classList.add("hidden");
+      // also unselect S.T.A.R.S if previously selected
+      starsOption.querySelector("input").checked = false;
+    }
+  });
+    setTimeout(function() {
+      const flashes = document.querySelectorAll('.flash');
+      flashes.forEach(flash => {
+        flash.style.display = 'none';
+      });
+    }, 2500);
+  </script>
+</body>
+</html>

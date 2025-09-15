@@ -1,0 +1,130 @@
+    body {
+        margin: 0;
+        height: 100vh;
+        background: linear-gradient(120deg, #e85a5a, #b9b3a9);
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .login-container {
+        background: rgba(255, 255, 255, 0.85);
+        padding: 40px;
+        border-radius: 20px;
+        text-align: center;
+        width: 350px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+.flash {
+    padding: 12px 20px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 500;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: opacity 0.5s;
+}
+
+.flash.danger {
+    background: #e74c3c;
+    color: #fff;
+    border: 1px solid #c0392b;
+}
+
+.flash.success {
+    background: #2ecc71;
+    color: #fff;
+    border: 1px solid #27ae60;
+}
+
+.flash.info {
+    background: #3498db;
+    color: #fff;
+    border: 1px solid #2980b9;
+}
+
+/* General link style */
+a {
+    text-decoration: none;
+    color: #007BFF;
+    font-weight: bold;
+    transition: color 0.2s ease-in-out;
+}
+
+a:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+/* Back button style */
+.back-btn {
+    display: inline-block;
+    padding: 6px 14px;
+    background: linear-gradient(120deg, #e85a5a, #b9b3a9);
+    color: white !important;
+    border-radius: 15px;
+    font-size: 14px;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.back-btn:hover {
+    opacity: 0.9;
+    text-decoration: none;
+}
+
+
+    h1 {
+        font-size: 20px;
+        margin-bottom: 5px;
+    }
+
+    h2 {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 20px;
+    }
+
+    input {
+        width: 100%;
+        padding: 12px;
+        margin: 8px 0;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+
+    .login-btn {
+        width: 100px;
+        padding: 10px;
+        background: linear-gradient(to right, #0fd850, #00b64a);
+        border: none;
+        border-radius: 20px;
+        color: black;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 10px;
+        transition: 0.3s;
+    }
+
+    .login-btn:hover {
+        opacity: 0.9;
+    }
+
+    .input-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    }
+
+    .input-group .icon {
+        font-size: 20px;
+        margin-right: 10px;
+        color: #555;
+    }

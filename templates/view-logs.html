@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>View Logs - Gratis Attendance</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    function filterStudents() {
+      let input = document.getElementById("studentSearch").value.toLowerCase();
+      let cards = document.querySelectorAll(".student-card");
+
+      cards.forEach(card => {
+        let text = card.innerText.toLowerCase();
+        card.style.display = text.includes(input) ? "block" : "none";
+      });
+    }
+  </script>
+</head>
+<body class="flex bg-gray-100 min-h-screen">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-gradient-to-b from-red-600 to-rose-600 text-white flex flex-col p-6 fixed h-screen">
+    <h2 class="text-2xl font-extrabold mb-8">Gratis Admin</h2>
+    <nav class="flex flex-col space-y-4">
+      <a href="{{ url_for('admin_dashboard') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📊 Dashboard</a>
+      <a href="{{ url_for('view_pending') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📝 Pending Registration</a>
+      <a href="{{ url_for('view_logs') }}" class="bg-white/20 px-4 py-2 rounded-lg transition font-semibold">📑 View Logs & Print</a>
+      <a href="{{ url_for('logoutA') }}" class="mt-auto bg-white text-red-600 font-semibold px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition">🚪 Logout</a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="ml-64 p-8 flex-1">
+
+    <!-- Title -->
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">View & Print Student Logs</h1>
+
+    <!-- Student List Section -->
+    <div class="bg-white rounded-xl shadow p-6 mb-8">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-semibold text-gray-700">Select a Student</h2>
+        <input type="text" id="studentSearch" onkeyup="filterStudents()" placeholder="Search student..."
+               class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-red-400 outline-none w-64" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="studentGrid">
+        {% for s in students %}
+        <a href="{{ url_for('view_logs_student', student_id=s.id) }}"
+           class="student-card p-4 border rounded-lg shadow-sm hover:shadow-md transition 
+                  {% if student and student.id == s.id %} bg-red-100 border-red-400 font-semibold {% else %} bg-gray-50 {% endif %}">
+          {{ s.full_name }} <br>
+          <span class="text-sm text-gray-600">({{ s.student_number }})</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Results -->
+    {% if student %}
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">
+        Attendance Records for {{ student.full_name }} ({{ student.student_number }})
+      </h2>
+
+      {% if records %}
+        <div class="bg-white rounded-xl shadow overflow-x-auto">
+          <table class="w-full text-sm text-left border-collapse">
+            <thead class="bg-red-500 text-white">
+              <tr>
+                <th class="px-4 py-3">Date</th>
+                <th class="px-4 py-3">Duty</th>
+                <th class="px-4 py-3">Time In</th>
+                <th class="px-4 py-3">Time Out</th>
+                <th class="px-4 py-3">Total Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in records %}
+              <tr class="border-b hover:bg-gray-50">
+                <td class="px-4 py-2">{{ r.date }}</td>
+                <td class="px-4 py-2">{{ r.assigned_duty or '--' }}</td>
+                <td class="px-4 py-2">{{ r.time_in or '--' }}</td>
+                <td class="px-4 py-2">{{ r.time_out or '--' }}</td>
+                <td class="px-4 py-2">{{ r.total_hours or '--' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Export Button -->
+        <div class="mt-6">
+          <a href="{{ url_for('export_logs', student_number=student.student_number) }}"
+            class="inline-block px-6 py-3 bg-red-500 text-white rounded-lg font-semibold shadow hover:bg-red-600 transition">
+            📤 Export & Email PDF
+          </a>
+        </div>
+      {% else %}
+        <p class="text-center italic text-gray-500 mt-6">No records found for this student.</p>
+      {% endif %}
+    {% else %}
+      <p class="text-center italic text-gray-500">Click on a student above to view their logs.</p>
+    {% endif %}
+
+  </main>
+</body>
+</html>

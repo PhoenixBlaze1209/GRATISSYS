@@ -1,0 +1,141 @@
+body {
+  margin: 0;
+  height: 100vh;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(120deg, #e85a5a, #b9b3a9);
+}
+
+.navbar {
+  display: flex;
+  background: linear-gradient(135deg, #ff6b6b, #ff5252);
+  padding: 10px;
+}
+
+.navbar a {
+  color: white;
+  text-decoration: none;
+  padding: 10px 15px;
+  margin-right: 5px;
+  font-weight: bold;
+}
+
+.navbar a:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.logout {
+  background: darkred;
+  border-radius: 5px;
+}
+
+.dashboard-title {
+  text-align: center;
+  margin: 20px 0;
+  font-size: 24px;
+  color: white;
+}
+
+.search-box {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.search-box input {
+  padding: 10px;
+  width: 250px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  text-align: center;
+}
+
+.search-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #0fd850, #00b64a);
+  color: black;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.logs-table {
+  width: 90%;
+  margin: auto;
+  border-collapse: collapse;
+  background: white;
+}
+
+.logs-table th, .logs-table td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: center;
+}
+
+.logs-table th {
+  background: #e57373;
+  color: white;
+}
+
+.export-btn {
+  text-align: center;
+  margin: 20px;
+}
+
+.btn-primary {
+  padding: 12px 25px;
+  background: linear-gradient(135deg, #2196f3, #1976d2);
+  color: white;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  text-decoration: none;
+}
+/* Flash Message Container */
+.flash-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+}
+
+/* Flash Message Base Style */
+.flash-message {
+  padding: 15px 20px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  opacity: 0;
+  transform: translateX(100%);
+  animation: slideIn 0.5s forwards, fadeOut 0.5s 3.5s forwards;
+}
+
+/* Flash Types */
+.flash-message.success {
+  background: linear-gradient(135deg, #4CAF50, #2E7D32);
+}
+.flash-message.warning {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+}
+.flash-message.danger {
+  background: linear-gradient(135deg, #f44336, #c62828);
+}
+.flash-message.info {
+  background: linear-gradient(135deg, #2196F3, #1565C0);
+}
+
+/* Animations */
+@keyframes slideIn {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
