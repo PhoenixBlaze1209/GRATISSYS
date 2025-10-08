@@ -124,13 +124,13 @@
       <div>
         <label class="block text-gray-700 font-medium mb-2">Student Type</label>
         <div class="space-y-2">
-          <label id="starsOption" class="flex items-center gap-2 hidden">
+          <label id="starsOption" class="flex items-center gap-2">
             <input type="radio" name="student_type" value="S.T.A.R.S" class="accent-red-500">
-            <span>S.T.A.R.S (Housekeeping)</span>
+            <span>S.T.A.R.S </span>
           </label>
           <label class="flex items-center gap-2">
-            <input type="radio" name="student_type" value="S.A" class="accent-red-500">
-            <span>S.A (Housekeeping)</span>
+            <input type="radio" name="student_type" value="SA" class="accent-red-500">
+            <span>SA </span>
           </label>
           <label class="flex items-center gap-2">
             <input type="radio" name="student_type" value="CS" class="accent-red-500">
@@ -156,16 +156,16 @@
 
   <!-- Flash hide script -->
   <script>
-      document.getElementById("yearLevel").addEventListener("change", function() {
-    const starsOption = document.getElementById("starsOption");
-    if (this.value === "4") {
-      starsOption.classList.remove("hidden");
-    } else {
-      starsOption.classList.add("hidden");
-      // also unselect S.T.A.R.S if previously selected
-      starsOption.querySelector("input").checked = false;
-    }
-  });
+  //     document.getElementById("yearLevel").addEventListener("change", function() {
+  //   const starsOption = document.getElementById("starsOption");
+  //   if (this.value === "4" && this.value == "") {
+  //     starsOption.classList.remove("hidden");
+  //   } else {
+  //     starsOption.classList.add("hidden");
+  //     // also unselect S.T.A.R.S if previously selected
+  //     starsOption.querySelector("input").checked = false;
+  //   }
+  // });
     setTimeout(function() {
       const flashes = document.querySelectorAll('.flash');
       flashes.forEach(flash => {
