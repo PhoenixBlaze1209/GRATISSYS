@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR Attendance - Gratis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-rose-300 via-red-400 to-rose-600 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+
+  <!-- Background Effects -->
+  <div class="absolute -top-24 -left-24 w-72 h-72 bg-rose-400 rounded-full blur-3xl opacity-30"></div>
+  <div class="absolute bottom-[-80px] right-[-80px] w-80 h-80 bg-red-500 rounded-full blur-3xl opacity-20"></div>
+
+  <!-- Scanner Container -->
+  <div class="backdrop-blur-lg bg-white/80 rounded-3xl shadow-2xl p-8 w-full max-w-md text-center border border-white/40 relative z-10">
+    <h1 class="text-3xl font-extrabold text-gray-800 mb-2">QR Attendance</h1>
+    <p class="text-gray-500 mb-6">Scan your QR code to time in or out</p>
+
+    <!-- QR Code Scanner -->
+    <div id="qr-reader" class="mx-auto w-full max-w-xs rounded-xl overflow-hidden border border-gray-300"></div>
+    <div id="result" class="mt-6 text-gray-700 font-semibold"></div>
+
+    <!-- Notification -->
+    <div id="flashMessage" class="hidden mt-4 px-4 py-2 rounded-lg text-white font-semibold text-sm"></div>
+
+    <!-- Back Button -->
+    <a href="{{ url_for('login') }}"
+       class="block mt-6 text-sm text-gray-600 hover:text-gray-800 underline transition">
+       ← Back to Home
+    </a>
+  </div>
+
+  <script>
+    const qrReader = new Html5Qrcode("qr-reader");
+    const flash = document.getElementById("flashMessage");
+
+    function showFlash(message, color) {
+      flash.textContent = message;
+      flash.className = `mt-4 px-4 py-2 rounded-lg text-white font-semibold text-sm bg-${color}-500`;
+      flash.classList.remove("hidden");
+      setTimeout(() => flash.classList.add("hidden"), 3000);
+    }
+
+    function onScanSuccess(decodedText) {
+      // Stop scanning after success
+      qrReader.stop().then(() => {
+        document.getElementById("result").innerText = "Processing...";
+        
+        // Send token to Flask backend
+        fetch("/validate_qr", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: decodedText })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === "success") {
+            showFlash(data.message, "green");
+          } else {
+            showFlash(data.message, "red");
+          }
+          document.getElementById("result").innerText = data.message;
+          
+          // Restart scanner after 3 seconds
+          setTimeout(() => startScanner(), 3000);
+        })
+        .catch(err => {
+          showFlash("Error connecting to server.", "red");
+          console.error(err);
+          setTimeout(() => startScanner(), 3000);
+        });
+      });
+    }
+
+    function startScanner() {
+      qrReader.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        onScanSuccess
+      ).catch(err => {
+        console.error("Unable to start scanning:", err);
+        showFlash("Camera not accessible.", "red");
+      });
+    }
+
+    startScanner();
+  </script>
+</body>
+</html>

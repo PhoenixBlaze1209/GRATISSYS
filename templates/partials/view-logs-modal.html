@@ -1,0 +1,57 @@
+<h2 class="text-xl font-semibold text-gray-800 mb-4">
+  Attendance Logs for {{ student.full_name }} ({{ student.student_number }})
+</h2>
+
+    <!-- 🔔 Flash Notification -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div id="flash-container" class="fixed top-5 right-5 space-y-3 z-50">
+          {% for category, message in messages %}
+            <div class="flash p-3 rounded-lg shadow-lg text-white text-sm font-medium transition duration-500 transform"
+                 {% if category == 'success' %} style="background-color: #22c55e" 
+                 {% elif category == 'error' %} style="background-color: #ef4444"
+                 {% else %} style="background-color: #6b7280" {% endif %}>
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+{% if records %}
+  <div class="overflow-x-auto bg-white rounded-xl shadow border border-gray-200">
+    <table class="w-full text-sm text-left">
+      <thead class="bg-red-500 text-white">
+        <tr>
+          <th class="px-4 py-2">Date</th>
+          <th class="px-4 py-2">Duty</th>
+          <th class="px-4 py-2">Time In</th>
+          <th class="px-4 py-2">Time Out</th>
+          <th class="px-4 py-2">Total Hours</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr class="border-b hover:bg-gray-50">
+          <td class="px-4 py-2">{{ r.date }}</td>
+          <td class="px-4 py-2">{{ r.assigned_duty or '--' }}</td>
+          <td class="px-4 py-2">{{ r.time_in or '--' }}</td>
+          <td class="px-4 py-2">{{ r.time_out or '--' }}</td>
+          <td class="px-4 py-2">{{ r.total_hours or '--' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Export PDF button -->
+  <div class="mt-6 text-right">
+    <a href="{{ url_for('export_logs', student_number=student.student_number) }}"
+       class="inline-block px-5 py-2 bg-red-500 text-white font-semibold rounded-lg shadow hover:bg-red-600 transition">
+       📤 Export & Email PDF
+    </a>
+  </div>
+
+{% else %}
+  <p class="text-center text-gray-500 italic mt-4">No records found for this student.</p>
+{% endif %}

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Status History - Gratis Attendance</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="flex bg-gray-100 min-h-screen">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-gradient-to-b from-red-600 to-rose-600 text-white flex flex-col p-6 fixed h-screen">
+    <h2 class="text-2xl font-extrabold mb-8">Gratis Admin</h2>
+    <nav class="flex flex-col space-y-4">
+      <a href="{{ url_for('admin_dashboard') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📊 Dashboard</a>
+      <a href="{{ url_for('view_pending') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📝 Pending Registration</a>
+      <a href="{{ url_for('view_logs') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📑 View Logs</a>
+      <a href="{{ url_for('view_status_history') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📜 Status History</a>
+      <a href="{{ url_for('logoutA') }}" class="mt-auto bg-white text-red-600 font-semibold px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition">🚪 Logout</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="ml-64 p-8 flex-1">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">📜 Student Status History</h1>
+
+    {% if history %}
+    <div class="bg-white rounded-xl shadow overflow-x-auto">
+      <table class="w-full text-sm text-left border-collapse">
+        <thead class="bg-red-500 text-white">
+          <tr>
+            <th class="px-4 py-3">Full Name</th>
+            <th class="px-4 py-3">Student Number</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3">Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in history %}
+          <tr class="border-b hover:bg-gray-50">
+            <td class="px-4 py-2">{{ h.full_name }}</td>
+            <td class="px-4 py-2">{{ h.student_number }}</td>
+            <td class="px-4 py-2">
+              {% if h.status == 'approved' %}
+                <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">{{ h.status }}</span>
+              {% elif h.status == 'pending' %}
+                <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">{{ h.status }}</span>
+              {% elif h.status == 'rejected' %}
+                <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">{{ h.status }}</span>
+              {% else %}
+                <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold">{{ h.status }}</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2">{{ h.date }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-center italic text-gray-500">No status history records found.</p>
+    {% endif %}
+  </main>
+</body>
+</html>

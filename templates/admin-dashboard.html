@@ -14,7 +14,8 @@
     <nav class="flex flex-col space-y-4">
       <a href="{{ url_for('admin_dashboard') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📊 Dashboard</a>
       <a href="{{ url_for('view_pending') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📝 Pending Registration</a>
-      <a href="{{ url_for('view_logs') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📑 View Logs & Print</a>
+      <a href="{{ url_for('view_logs') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📑 View Logs</a>
+      <a href="{{ url_for('view_status_history') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📜 Status History</a>
       <a href="{{ url_for('logoutA') }}" class="mt-auto bg-white text-red-600 font-semibold px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition">🚪 Logout</a>
     </nav>
   </aside>
@@ -31,9 +32,9 @@
          class="px-4 py-2 rounded-lg border {{ 'bg-red-500 text-white' if selected_type == 'S.T.A.R.S' else 'bg-white text-gray-700' }} shadow hover:shadow-md transition">
         S.T.A.R.S
       </a>
-      <a href="{{ url_for('admin_dashboard', filter='S.A') }}" 
-         class="px-4 py-2 rounded-lg border {{ 'bg-red-500 text-white' if selected_type == 'S.A' else 'bg-white text-gray-700' }} shadow hover:shadow-md transition">
-        S.A
+      <a href="{{ url_for('admin_dashboard', filter='SA') }}" 
+         class="px-4 py-2 rounded-lg border {{ 'bg-red-500 text-white' if selected_type == 'SA' else 'bg-white text-gray-700' }} shadow hover:shadow-md transition">
+        SA
       </a>
       <a href="{{ url_for('admin_dashboard', filter='CS') }}" 
          class="px-4 py-2 rounded-lg border {{ 'bg-red-500 text-white' if selected_type == 'CS' else 'bg-white text-gray-700' }} shadow hover:shadow-md transition">
@@ -69,16 +70,16 @@
           </tr>
         </thead>
         <tbody>
-          {% for record in attendance %}
+          {% for r in attendance %}
           <tr class="border-b hover:bg-gray-50">
-            <td class="px-4 py-2">{{ record.student_number }}</td>
-            <td class="px-4 py-2">{{ record.full_name }}</td>
-            <td class="px-4 py-2">{{ record.date }}</td>
-            <td class="px-4 py-2">{{ record.year_level }}, {{ record.program }}</td>
-            <td class="px-4 py-2">{{ record.assigned_duty }}</td>
-            <td class="px-4 py-2">{{ record.time_in }}</td>
-            <td class="px-4 py-2">{{ record.time_out }}</td>
-            <td class="px-4 py-2">{{ record.total_hours }}</td>
+            <td class="px-4 py-2">{{ r.student_number }}</td>
+            <td class="px-4 py-2">{{ r.full_name }}</td>
+            <td class="px-4 py-2">{{ r.date }}</td>
+            <td class="px-4 py-2">{{ r.year_level }} - {{ r.program }}</td>
+            <td class="px-4 py-2">{{ r.assigned_duty }}</td>
+            <td class="px-4 py-2">{{ r.time_in }}</td>
+            <td class="px-4 py-2">{{ r.time_out }}</td>
+            <td class="px-4 py-2">{{ r.total_hours }}</td>
           </tr>
           {% endfor %}
         </tbody>

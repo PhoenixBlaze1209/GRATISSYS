@@ -14,7 +14,8 @@
     <nav class="flex flex-col space-y-4">
       <a href="{{ url_for('admin_dashboard') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📊 Dashboard</a>
       <a href="{{ url_for('view_pending') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📝 Pending Registration</a>
-      <a href="{{ url_for('view_logs') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📑 View Logs & Print</a>
+      <a href="{{ url_for('view_logs') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📑 View Logs</a>
+      <a href="{{ url_for('view_status_history') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📜 Status History</a>
       <a href="{{ url_for('logoutA') }}" class="mt-auto bg-white text-red-600 font-semibold px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition">🚪 Logout</a>
     </nav>
   </aside>
@@ -25,8 +26,24 @@
     <!-- Page Title -->
     <h1 class="text-3xl font-bold text-gray-800 mb-6">Pending Student Registrations</h1>
 
+    <!-- 🔔 Flash Notification -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div id="flash-container" class="fixed top-5 right-5 space-y-3 z-50">
+          {% for category, message in messages %}
+            <div class="flash p-3 rounded-lg shadow-lg text-white text-sm font-medium transition duration-500 transform"
+                 {% if category == 'success' %} style="background-color: #22c55e" 
+                 {% elif category == 'error' %} style="background-color: #ef4444"
+                 {% else %} style="background-color: #6b7280" {% endif %}>
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
     <!-- Pending Students Table -->
-    <div class="bg-white rounded-xl shadow overflow-x-auto">
+    <div class="bg-white rounded-xl shadow overflow-x-auto mt-4">
       <table class="w-full text-sm text-left border-collapse">
         <thead class="bg-red-500 text-white">
           <tr>
@@ -50,12 +67,12 @@
             <td class="px-4 py-2">{{ student.assigned_duty or '--' }}</td>
             <td class="px-4 py-2 flex gap-2">
               <!-- Approve -->
-              <a href="{{ url_for('approve_student', user_id=student.id) }}"
-                 class="px-3 py-1 rounded-lg text-white bg-green-500 hover:bg-green-600 shadow text-xs transition">
+              <button type="button" onclick="openApproveModal('{{ student.id }}', '{{ student.full_name }}')" 
+                      class="px-3 py-1 rounded-lg text-white bg-green-500 hover:bg-green-600 shadow text-xs transition">
                 Approve
-              </a>
+              </button>
               <!-- Reject -->
-              <button type="button" onclick="openRejectModal('{{ student.id }}')"
+              <button type="button" onclick="openRejectModal('{{ student.id }}')" 
                       class="px-3 py-1 rounded-lg text-white bg-red-500 hover:bg-red-600 shadow text-xs transition">
                 Reject
               </button>
@@ -71,6 +88,20 @@
     </div>
   </main>
 
+  <!-- Approve Modal -->
+  <div id="approveModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full text-center">
+      <h2 class="text-xl font-bold text-gray-800 mb-2">Approve Student?</h2>
+      <p class="text-gray-600 mb-6" id="approveStudentName">Are you sure you want to approve this student?</p>
+      <div class="flex justify-center gap-4">
+        <form id="approveForm" method="GET">
+          <button type="submit" class="px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition">Yes, Approve</button>
+        </form>
+        <button type="button" onclick="closeModal('approveModal')" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Reject Modal -->
   <div id="rejectModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
     <div class="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full text-center">
@@ -80,25 +111,50 @@
         <form id="rejectForm" method="POST">
           <button type="submit" class="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition">Yes, Reject</button>
         </form>
-        <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition">Cancel</button>
+        <button type="button" onclick="closeModal('rejectModal')" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition">Cancel</button>
       </div>
     </div>
   </div>
 
   <script>
+    // Approve modal functions
+    function openApproveModal(userId, fullName) {
+      const modal = document.getElementById("approveModal");
+      const form = document.getElementById("approveForm");
+      const nameText = document.getElementById("approveStudentName");
+      form.action = "/approve-student/" + userId;
+      nameText.textContent = `Are you sure you want to approve ${fullName}?`;
+      modal.classList.remove("hidden");
+    }
+
+    // Reject modal functions
     function openRejectModal(userId) {
       const modal = document.getElementById("rejectModal");
       const form = document.getElementById("rejectForm");
       form.action = "/reject-student/" + userId;
       modal.classList.remove("hidden");
     }
-    function closeModal() {
-      document.getElementById("rejectModal").classList.add("hidden");
+
+    // Close modals
+    function closeModal(id) {
+      document.getElementById(id).classList.add("hidden");
     }
-    window.onclick = function(e){
-      const modal = document.getElementById("rejectModal");
-      if(e.target === modal){ closeModal(); }
+
+    window.onclick = function(e) {
+      const approveModal = document.getElementById("approveModal");
+      const rejectModal = document.getElementById("rejectModal");
+      if (e.target === approveModal) closeModal('approveModal');
+      if (e.target === rejectModal) closeModal('rejectModal');
     }
+
+    // Flash auto-dismiss
+    setTimeout(() => {
+      const flashes = document.querySelectorAll('.flash');
+      flashes.forEach(el => {
+        el.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => el.remove(), 500);
+      });
+    }, 3000);
   </script>
 </body>
 </html>

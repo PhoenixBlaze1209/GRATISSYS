@@ -1,0 +1,54 @@
+users
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    student_number VARCHAR(50) UNIQUE,
+    year_level INT,
+    program VARCHAR(100),
+    student_type ENUM('S.T.A.R.S', 'S.A', 'CS') DEFAULT NULL,
+    assigned_duty VARCHAR(100),
+    role ENUM('student', 'admin') DEFAULT 'student',
+    status ENUM('pending', 'approved', 'inactive', 'rejected') DEFAULT 'pending',
+    qr_token VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+attendance
+
+CREATE TABLE attendance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    date DATE NOT NULL,
+    assigned_duty VARCHAR(100),
+    time_in TIME DEFAULT NULL,
+    time_out TIME DEFAULT NULL,
+    total_hours FLOAT DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+
+tbl_schedule
+
+CREATE TABLE tbl_schedule (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    day VARCHAR(20) NOT NULL,
+    rendered_hours FLOAT DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+
+status_history
+
+CREATE TABLE status_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    status ENUM('pending', 'approved', 'inactive', 'rejected') NOT NULL,
+    date DATE NOT NULL DEFAULT (CURRENT_DATE),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
