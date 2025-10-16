@@ -9,13 +9,14 @@ CREATE TABLE users (
     student_number VARCHAR(50) UNIQUE,
     year_level INT,
     program VARCHAR(100),
-    student_type ENUM('S.T.A.R.S', 'S.A', 'CS') DEFAULT NULL,
+    student_type ENUM('S.T.A.R.S', 'S.A', 'CS', 'Housekeeping') NOT NULL DEFAULT 'Housekeeping',
     assigned_duty VARCHAR(100),
     role ENUM('student', 'admin') DEFAULT 'student',
     status ENUM('pending', 'approved', 'inactive', 'rejected') DEFAULT 'pending',
     qr_token VARCHAR(255) DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    contact_no VARCHAR(15) DEFAULT NULL
+);  
 
 attendance
 
