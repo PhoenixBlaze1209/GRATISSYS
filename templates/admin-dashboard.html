@@ -40,6 +40,10 @@
          class="px-4 py-2 rounded-lg border {{ 'bg-red-500 text-white' if selected_type == 'CS' else 'bg-white text-gray-700' }} shadow hover:shadow-md transition">
         CS
       </a>
+      <a href="{{ url_for('admin_dashboard', filter='Housekeeping') }}" 
+         class="px-4 py-2 rounded-lg border {{ 'bg-red-500 text-white' if selected_type == 'Housekeeping' else 'bg-white text-gray-700' }} shadow hover:shadow-md transition">
+        Housekeeping
+      </a>
     </div>
 
     <!-- Students In/Out Stats -->

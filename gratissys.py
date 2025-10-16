@@ -93,82 +93,6 @@ def student_login():
 def qr_attendance():
     return render_template('qr_attendance.html')
 
-@app.route('/validate_qr', methods=['POST'])
-def validate_qr():
-    data = request.get_json()
-    token = data.get('token')
-
-    if not token:
-        return jsonify({"status": "error", "message": "Invalid QR code."})
-
-    connection = get_db_connection()
-    cursor = connection.cursor(pymysql.cursors.DictCursor)
-
-    # Check if QR exists and approved
-    cursor.execute("SELECT * FROM users WHERE qr_token=%s AND status='approved'", (token,))
-    user = cursor.fetchone()
-
-    if not user:
-        cursor.close()
-        connection.close()
-        return jsonify({"status": "error", "message": "QR code not recognized or not approved."})
-
-    user_id = user['id']
-    assigned_duty = user.get('assigned_duty', "Unassigned")
-
-    today = date.today()
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    # Get latest attendance today
-    cursor.execute("""
-        SELECT * FROM attendance 
-        WHERE user_id=%s AND date=%s 
-        ORDER BY id DESC LIMIT 1
-    """, (user_id, today))
-    last_log = cursor.fetchone()
-
-    # No record yet today → Time IN
-    if not last_log:
-        cursor.execute("""
-            INSERT INTO attendance (user_id, date, time_in, assigned_duty)
-            VALUES (%s, %s, %s, %s)
-        """, (user_id, today, now, assigned_duty))
-        message = f"{user['full_name']} - Time In Recorded ✅"
-
-    # If already timed in but not out → Time OUT
-    elif not last_log['time_out']:
-        time_in_dt = datetime.combine(today, datetime.strptime(str(last_log['time_in']), "%H:%M:%S").time())
-        time_out_dt = datetime.now()
-
-        # Calculate total hours (minus 1 hr lunch break)
-        total_hours = int((time_out_dt - time_in_dt).total_seconds() // 3600) - 1
-        if total_hours < 0:
-            total_hours = 0
-
-        cursor.execute("""
-            UPDATE attendance
-            SET time_out=%s, total_hours=%s
-            WHERE id=%s
-        """, (now, total_hours, last_log['id']))
-        message = f"{user['full_name']} - Time Out Recorded ⏰ (Total: {total_hours} hrs)"
-
-    # If already timed out, create new time in for next day/session
-    else:
-        cursor.execute("""
-            INSERT INTO attendance (user_id, date, time_in, assigned_duty)
-            VALUES (%s, %s, %s, %s)
-        """, (user_id, today, now, assigned_duty))
-        message = f"{user['full_name']} - New Time In Recorded ✅"
-
-    connection.commit()
-    cursor.close()
-    connection.close()
-
-    return jsonify({"status": "success", "message": message})
-
-
-# With Restrictions (8-8:15 AM, 5-5:15 PM)
-
 # @app.route('/validate_qr', methods=['POST'])
 # def validate_qr():
 #     data = request.get_json()
@@ -177,83 +101,217 @@ def validate_qr():
 #     if not token:
 #         return jsonify({"status": "error", "message": "Invalid QR code."})
 
-#     try:
-#         conn = get_db_connection()
-#         cursor = conn.cursor()
+#     connection = get_db_connection()
+#     cursor = connection.cursor(pymysql.cursors.DictCursor)
 
-#         # Step 1: Validate QR token and approval
-#         cursor.execute("SELECT * FROM users WHERE qr_token=%s AND status='approved'", (token,))
-#         user = cursor.fetchone()
+#     # Check if QR exists and approved
+#     cursor.execute("SELECT * FROM users WHERE qr_token=%s AND status='approved'", (token,))
+#     user = cursor.fetchone()
 
-#         if not user:
-#             return jsonify({"status": "error", "message": "QR code not recognized or not approved."})
-
-#         user_id = user['id']
-#         today = date.today()
-#         now = datetime.now().time()
-
-#         # Get assigned duty
-#         assigned_duty = user.get('assigned_duty', "Housekeeping")
-#         # Check if there's already a record for today
-#         cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND date=%s", (user_id, today))
-#         record = cursor.fetchone()
-
-#         # --- TIME IN RULES ---
-#         start_in = time(8, 0)
-#         cutoff_in = time(8, 15)
-
-#         # --- TIME OUT RULES ---
-#         start_out = time(17, 0)
-#         cutoff_out = time(17, 15)
-
-#         if not record:
-#             # Attempting to TIME IN
-#             if not (start_in <= now <= cutoff_in):
-#                 return jsonify({"status": "error", "message": "⏰ You can only time in between 8:00 and 8:15 AM."})
-
-#             fixed_time_in = start_in.strftime("%H:%M:%S")
-
-#             cursor.execute("""
-#                 INSERT INTO attendance (user_id, date, time_in, assigned_duty)
-#                 VALUES (%s, %s, %s, %s)
-#             """, (user_id, today, fixed_time_in, assigned_duty))
-
-#             conn.commit()
-#             message = f"{user['full_name']} - Time In recorded at 8:00 AM ✅"
-
-#         else:
-#             # Attempting to TIME OUT
-#             if record['time_out']:
-#                 return jsonify({"status": "error", "message": "You already timed out today."})
-
-#             if not (start_out <= now <= cutoff_out):
-#                 return jsonify({"status": "error", "message": "⏰ You can only time out between 5:00 and 5:15 PM."})
-
-#             fixed_time_out = start_out
-#             time_in_dt = datetime.combine(today, time(8, 0))
-#             time_out_dt = datetime.combine(today, fixed_time_out)
-
-#             # Subtract 1 hour for lunch
-#             total_hours = int((time_out_dt - time_in_dt).total_seconds() // 3600) - 1
-
-#             cursor.execute("""
-#                 UPDATE attendance
-#                 SET time_out=%s, total_hours=%s
-#                 WHERE id=%s
-#             """, (fixed_time_out.strftime("%H:%M:%S"), total_hours, record['id']))
-#             conn.commit()
-
-#             message = f"{user['full_name']} - Time Out recorded at 5:00 PM ⏰ | Total Duty Hours: {total_hours} hrs"
-
-#         return jsonify({"status": "success", "message": message})
-
-#     except Exception as e:
-#         print("Error in validate_qr:", e)
-#         return jsonify({"status": "error", "message": "⚠️ Server error while processing attendance."})
-
-#     finally:
+#     if not user:
 #         cursor.close()
-#         conn.close()
+#         connection.close()
+#         return jsonify({"status": "error", "message": "QR code not recognized or not approved."})
+
+#     user_id = user['id']
+#     assigned_duty = user.get('assigned_duty', "Unassigned")
+
+#     today = date.today()
+#     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+#     # Get latest attendance today
+#     cursor.execute("""
+#         SELECT * FROM attendance 
+#         WHERE user_id=%s AND date=%s 
+#         ORDER BY id DESC LIMIT 1
+#     """, (user_id, today))
+#     last_log = cursor.fetchone()
+
+#     # No record yet today → Time IN
+#     if not last_log:
+#         cursor.execute("""
+#             INSERT INTO attendance (user_id, date, time_in, assigned_duty)
+#             VALUES (%s, %s, %s, %s)
+#         """, (user_id, today, now, assigned_duty))
+#         message = f"{user['full_name']} - Time In Recorded ✅"
+
+#     # If already timed in but not out → Time OUT
+#     elif not last_log['time_out']:
+#         time_in_dt = datetime.combine(today, datetime.strptime(str(last_log['time_in']), "%H:%M:%S").time())
+#         time_out_dt = datetime.now()
+
+#         # Calculate total hours (minus 1 hr lunch break)
+#         total_hours = int((time_out_dt - time_in_dt).total_seconds() // 3600) - 1
+#         if total_hours < 0:
+#             total_hours = 0
+
+#         cursor.execute("""
+#             UPDATE attendance
+#             SET time_out=%s, total_hours=%s
+#             WHERE id=%s
+#         """, (now, total_hours, last_log['id']))
+#         message = f"{user['full_name']} - Time Out Recorded ⏰ (Total: {total_hours} hrs)"
+
+#     # If already timed out, create new time in for next day/session
+#     else:
+#         cursor.execute("""
+#             INSERT INTO attendance (user_id, date, time_in, assigned_duty)
+#             VALUES (%s, %s, %s, %s)
+#         """, (user_id, today, now, assigned_duty))
+#         message = f"{user['full_name']} - New Time In Recorded ✅"
+
+#     connection.commit()
+#     cursor.close()
+#     connection.close()
+
+#     return jsonify({"status": "success", "message": message})
+
+
+# With Restrictions (8-8:15 AM, 5-5:15 PM)
+
+@app.route('/validate_qr', methods=['POST'])
+def validate_qr():
+    data = request.get_json()
+    token = data.get('token')
+
+    if not token:
+        return jsonify({"status": "error", "message": "Invalid QR code."})
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Step 1: Validate QR token and approval
+        cursor.execute("SELECT * FROM users WHERE qr_token=%s AND status='approved'", (token,))
+        user = cursor.fetchone()
+
+        if not user:
+            return jsonify({"status": "error", "message": "QR code not recognized or not approved."})
+
+        user_id = user['id']
+        student_type = user['student_type']
+        today = date.today()
+        now = datetime.now().time()
+
+        # Get assigned duty
+        assigned_duty = user.get('assigned_duty', "General Services")
+
+        # Check if there's already a record for today
+        cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND date=%s", (user_id, today))
+        record = cursor.fetchone()
+
+        # Default rule-based time windows
+        start_in = time(8, 0)
+        cutoff_in = time(8, 15)
+        start_out = time(17, 0)
+        cutoff_out = time(17, 15)
+
+        # -------------------------
+        # ✅ S.T.A.R.S STUDENTS (Flexible Schedule)
+        # -------------------------
+        if student_type == "S.T.A.R.S":
+            if not record:
+                # TIME IN (anytime)
+                cursor.execute("""
+                    INSERT INTO attendance (user_id, date, time_in, assigned_duty)
+                    VALUES (%s, %s, %s, %s)
+                """, (user_id, today, datetime.now().strftime("%H:%M:%S"), assigned_duty))
+                conn.commit()
+                message = f"{user['full_name']} - Time In recorded successfully ✅"
+            else:
+                # TIME OUT (anytime)
+                if record['time_out']:
+                    return jsonify({"status": "error", "message": "You already timed out today."})
+
+                time_in_dt = datetime.combine(today, record['time_in'])
+                time_out_dt = datetime.combine(today, datetime.now().time())
+
+                # Deduct 1 hour if they worked through lunch (12–1)
+                lunch_start = datetime.combine(today, time(12, 0))
+                lunch_end = datetime.combine(today, time(13, 0))
+                total_seconds = (time_out_dt - time_in_dt).total_seconds()
+                if time_in_dt < lunch_start < time_out_dt:
+                    total_seconds -= 3600
+
+                total_hours = int(total_seconds // 3600)
+
+                cursor.execute("""
+                    UPDATE attendance
+                    SET time_out=%s, total_hours=%s
+                    WHERE id=%s
+                """, (datetime.now().strftime("%H:%M:%S"), total_hours, record['id']))
+
+                # Update rendered hours in tbl_schedule
+                cursor.execute("""
+                    INSERT INTO tbl_schedule (user_id, day, rendered_hours)
+                    VALUES (%s, %s, 0)
+                    ON DUPLICATE KEY UPDATE rendered_hours = (
+                        SELECT IFNULL(SUM(total_hours), 0)
+                        FROM attendance WHERE user_id = %s
+                    )
+                """, (user_id, today.strftime("%A"), user_id))
+                conn.commit()
+
+                message = f"{user['full_name']} - Time Out recorded ⏰ | Total Duty Hours: {total_hours} hrs"
+
+            return jsonify({"status": "success", "message": message})
+
+        # -------------------------
+        # ⏰ REGULAR STUDENTS (S.A., CS)
+        # -------------------------
+        if not record:
+            # TIME IN
+            if not (start_in <= now <= cutoff_in):
+                return jsonify({"status": "error", "message": "⏰ You can only time in between 8:00 and 8:15 AM."})
+
+            cursor.execute("""
+                INSERT INTO attendance (user_id, date, time_in, assigned_duty)
+                VALUES (%s, %s, %s, %s)
+            """, (user_id, today, start_in.strftime("%H:%M:%S"), assigned_duty))
+            conn.commit()
+            message = f"{user['full_name']} - Time In recorded at 8:00 AM ✅"
+
+        else:
+            # TIME OUT
+            if record['time_out']:
+                return jsonify({"status": "error", "message": "You already timed out today."})
+
+            if not (start_out <= now <= cutoff_out):
+                return jsonify({"status": "error", "message": "⏰ You can only time out between 5:00 and 5:15 PM."})
+
+            time_in_dt = datetime.combine(today, time(8, 0))
+            time_out_dt = datetime.combine(today, time(17, 0))
+
+            total_hours = int((time_out_dt - time_in_dt).total_seconds() // 3600) - 1  # deduct lunch
+
+            cursor.execute("""
+                UPDATE attendance
+                SET time_out=%s, total_hours=%s
+                WHERE id=%s
+            """, (start_out.strftime("%H:%M:%S"), total_hours, record['id']))
+
+            cursor.execute("""
+                INSERT INTO tbl_schedule (user_id, day, rendered_hours)
+                VALUES (%s, %s, 0)
+                ON DUPLICATE KEY UPDATE rendered_hours = (
+                    SELECT IFNULL(SUM(total_hours), 0)
+                    FROM attendance WHERE user_id = %s
+                )
+            """, (user_id, today.strftime("%A"), user_id))
+            conn.commit()
+
+            message = f"{user['full_name']} - Time Out recorded at 5:00 PM ⏰ | Total Duty Hours: {total_hours} hrs"
+
+        return jsonify({"status": "success", "message": message})
+
+    except Exception as e:
+        print("Error in validate_qr:", e)
+        return jsonify({"status": "error", "message": "⚠️ Server error while processing attendance."})
+
+    finally:
+        cursor.close()
+        conn.close()
+
 
 # ------------------ Login Handlers ------------------ #
 @app.route('/login-admin', methods=['POST'])
@@ -1030,9 +1088,7 @@ def to_time(value):
         return time(hours, minutes, seconds)
     return value
 
-# ==============================================================
-# ✅ TIME IN ROUTE (Regular & S.T.A.R.S)
-# ==============================================================
+
 @app.route('/time_in', methods=['POST'])
 def time_in():
     if 'user_id' not in session:
@@ -1040,18 +1096,26 @@ def time_in():
 
     today = date.today()
     now = datetime.now().time()
+    user_id = session['user_id']
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Get user info
-    cursor.execute("SELECT student_type, assigned_duty FROM users WHERE id=%s", (session['user_id'],))
+    # Fetch user details
+    cursor.execute("SELECT student_type, assigned_duty FROM users WHERE id=%s", (user_id,))
     user = cursor.fetchone()
-    student_type = user['student_type']
-    assigned_duty = user['assigned_duty'] if user else "Unassigned"
 
-    # Restriction for regular students only
-    if student_type != "S.T.A.R.S":
+    if not user:
+        flash("⚠️ User not found.", "danger")
+        cursor.close()
+        conn.close()
+        return redirect(url_for('student_login'))
+
+    student_type = user['student_type']
+    assigned_duty = user['assigned_duty'] or "Unassigned"
+
+    # Restriction for NON-S.T.A.R.S users
+    if student_type != "S.T.A.R.S" :
         start_time = time(8, 0)
         cutoff_time = time(8, 15)
         if not (start_time <= now <= cutoff_time):
@@ -1060,8 +1124,8 @@ def time_in():
             conn.close()
             return redirect(url_for('student_dashboard'))
 
-    # Prevent multiple time-ins
-    cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND date=%s", (session['user_id'], today))
+    # Check existing record for today
+    cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND date=%s", (user_id, today))
     record = cursor.fetchone()
     if record:
         flash("⚠️ You already timed in today.", "warning")
@@ -1069,24 +1133,29 @@ def time_in():
         conn.close()
         return redirect(url_for('student_dashboard'))
 
-    # Set proper time_in value
+    # Determine proper time_in
     fixed_time_in = (
-        datetime.now().strftime("%H:%M:%S") 
-        if student_type == "S.T.A.R.S" 
-        else time(8, 0).strftime("%H:%M:%S")
+        datetime.now().strftime("%H:%M:%S")  # S.T.A.R.S → any time allowed
+        if student_type == "S.T.A.R.S"
+        else time(8, 0).strftime("%H:%M:%S")  # Others → fixed at 8:00 AM
     )
 
-    # Insert attendance
+    # Insert time-in record
     cursor.execute("""
         INSERT INTO attendance (user_id, date, time_in, assigned_duty)
         VALUES (%s, %s, %s, %s)
-    """, (session['user_id'], today, fixed_time_in, assigned_duty))
+    """, (user_id, today, fixed_time_in, assigned_duty))
     conn.commit()
 
-    flash(f"✅ Time in recorded at {fixed_time_in}", "success")
+    # Confirmation message
+    if student_type == "S.T.A.R.S":
+        flash(f"✅ Time in recorded successfully at {fixed_time_in}", "success")
+    else:
+        flash("✅ Time in recorded as 8:00 AM", "success")
+
     cursor.close()
     conn.close()
-    return redirect(url_for('student_dashboard'))
+    return redirect(url_for('student_dashboard'))   
 
 
 
@@ -1098,16 +1167,17 @@ def time_out():
     today = date.today()
     now = datetime.now().time()
     user_id = session['user_id']
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    
-    cursor.execute("SELECT student_type FROM users WHERE id=%s", (session['user_id'],))
+    # Fetch user details
+    cursor.execute("SELECT * FROM users WHERE id=%s", (user_id,))
     user = cursor.fetchone()
     student_type = user['student_type']
 
-
-    cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND date=%s", (session['user_id'], today))
+    # Fetch attendance record (safe DATE() comparison)
+    cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND DATE(date)=%s", (user_id, today))
     record = cursor.fetchone()
 
     if not record or not record['time_in']:
@@ -1115,7 +1185,7 @@ def time_out():
     elif record['time_out']:
         flash("⚠️ You already timed out today.", "warning")
     else:
-        
+        # Restrict only if NOT S.T.A.R.S
         if student_type != "S.T.A.R.S":
             start_out = time(17, 0)
             cutoff_out = time(17, 15)
@@ -1125,36 +1195,44 @@ def time_out():
                 conn.close()
                 return redirect(url_for('student_dashboard'))
 
-        time_in_dt = datetime.combine(today, to_time(record['time_in']))
+        # ✅ Convert timedelta to time (in case)
+        time_in_value = record['time_in']
+        if isinstance(time_in_value, timedelta):
+            total_seconds = int(time_in_value.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            time_in_value = time(hours, minutes)
+
+        # Compute total hours
+        time_in_dt = datetime.combine(today, time_in_value)
         time_out_dt = datetime.combine(today, datetime.now().time())
 
         lunch_start = datetime.combine(today, time(12, 0))
         lunch_end = datetime.combine(today, time(13, 0))
 
         total_seconds = (time_out_dt - time_in_dt).total_seconds()
-
         if time_in_dt < lunch_start < time_out_dt:
-            total_seconds -= 3600  
+            total_seconds -= 3600  # Deduct 1 hour lunch
 
         total_hours = int(total_seconds // 3600)
 
-        
+        # ✅ Update attendance
         cursor.execute("""
             UPDATE attendance
             SET time_out=%s, total_hours=%s
             WHERE id=%s
         """, (datetime.now().strftime("%H:%M:%S"), total_hours, record['id']))
 
+        # ✅ Update tbl_schedule
         cursor.execute("SELECT * FROM tbl_schedule WHERE user_id = %s", (user_id,))
         schedule = cursor.fetchone()
         if not schedule:
             cursor.execute("""
                 INSERT INTO tbl_schedule (user_id, day, rendered_hours)
                 VALUES (%s, %s, 0)
-            """, (user_id, today.strftime("%A")))   
+            """, (user_id, today.strftime("%A")))
             conn.commit()
 
-       
         cursor.execute("""
             UPDATE tbl_schedule 
             SET rendered_hours = (
@@ -1163,9 +1241,60 @@ def time_out():
                 WHERE user_id = %s
             )
             WHERE user_id = %s
-        """, (session['user_id'], session['user_id']))
+        """, (user_id, user_id))
         conn.commit()
-        conn.commit()
+
+        # ✅ Re-check total rendered hours
+        cursor.execute("""
+            SELECT u.email, u.full_name, u.student_type, u.created_at, s.rendered_hours
+            FROM users u
+            JOIN tbl_schedule s ON u.id = s.user_id
+            WHERE u.id = %s
+        """, (user_id,))
+        user_data = cursor.fetchone()
+
+        if user_data:
+            rendered_hours = user_data['rendered_hours']
+            created_at = user_data['created_at']
+
+            # ⚙️ Convert DATETIME → date
+            if isinstance(created_at, datetime):
+                created_at = created_at.date()
+
+            email = user_data['email']
+            full_name = user_data['full_name']
+            student_type = user_data['student_type']
+
+            six_months_after = created_at + timedelta(days=180)
+
+            # 🎯 Completion check (only for SA, Housekeeping, STARS)
+            if student_type in ("S.A", "Housekeeping") and rendered_hours >= 60 and date.today() <= six_months_after:
+                sender_email = "gratisa1200@gmail.com"
+                sender_pass = "zolf herh wytf psmd"
+
+                msg = MIMEMultipart()
+                msg["From"] = sender_email
+                msg["To"] = email
+                msg["Subject"] = "🎉 Congratulations! You’ve Completed Your 60 Hours"
+
+                body = f"""
+                <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.5;">
+                    <h2 style="color:#e74c3c;">Congratulations, {full_name}!</h2>
+                    <p>You’ve successfully rendered <b>60 hours</b> of duty under the Gratis Attendance program.</p>
+                    <p>Your hard work and dedication are greatly appreciated. Please report to your coordinator for clearance processing.</p>
+                    <br>
+                    <p>Best regards,<br><strong>General Services Department</strong></p>
+                </body>
+                </html>
+                """
+                msg.attach(MIMEText(body, "html"))
+
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                    smtp.login(sender_email, sender_pass)
+                    smtp.send_message(msg)
+
+                flash("🎉 You have completed 60 hours! Email notification sent successfully!", "success")
 
         flash(f"✅ Time out recorded. Total hours: {total_hours} hrs", "success")
 
