@@ -1176,7 +1176,6 @@ def time_out():
     user = cursor.fetchone()
     student_type = user['student_type']
 
-    # Fetch attendance record (safe DATE() comparison)
     cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND DATE(date)=%s", (user_id, today))
     record = cursor.fetchone()
 
@@ -1185,7 +1184,6 @@ def time_out():
     elif record['time_out']:
         flash("⚠️ You already timed out today.", "warning")
     else:
-        # Restrict only if NOT S.T.A.R.S
         if student_type != "S.T.A.R.S":
             start_out = time(17, 0)
             cutoff_out = time(17, 15)
@@ -1195,7 +1193,6 @@ def time_out():
                 conn.close()
                 return redirect(url_for('student_dashboard'))
 
-        # ✅ Convert timedelta to time (in case)
         time_in_value = record['time_in']
         if isinstance(time_in_value, timedelta):
             total_seconds = int(time_in_value.total_seconds())
@@ -1212,18 +1209,18 @@ def time_out():
 
         total_seconds = (time_out_dt - time_in_dt).total_seconds()
         if time_in_dt < lunch_start < time_out_dt:
-            total_seconds -= 3600  # Deduct 1 hour lunch
+            total_seconds -= 3600  
 
         total_hours = int(total_seconds // 3600)
 
-        # ✅ Update attendance
+        # Update attendance
         cursor.execute("""
             UPDATE attendance
             SET time_out=%s, total_hours=%s
             WHERE id=%s
         """, (datetime.now().strftime("%H:%M:%S"), total_hours, record['id']))
 
-        # ✅ Update tbl_schedule
+        # Update tbl_schedule
         cursor.execute("SELECT * FROM tbl_schedule WHERE user_id = %s", (user_id,))
         schedule = cursor.fetchone()
         if not schedule:
@@ -1244,7 +1241,7 @@ def time_out():
         """, (user_id, user_id))
         conn.commit()
 
-        # ✅ Re-check total rendered hours
+        # check total rendered hours
         cursor.execute("""
             SELECT u.email, u.full_name, u.student_type, u.created_at, s.rendered_hours
             FROM users u
@@ -1257,7 +1254,6 @@ def time_out():
             rendered_hours = user_data['rendered_hours']
             created_at = user_data['created_at']
 
-            # ⚙️ Convert DATETIME → date
             if isinstance(created_at, datetime):
                 created_at = created_at.date()
 
@@ -1267,7 +1263,6 @@ def time_out():
 
             six_months_after = created_at + timedelta(days=180)
 
-            # 🎯 Completion check (only for SA, Housekeeping, STARS)
             if student_type in ("S.A", "Housekeeping") and rendered_hours >= 60 and date.today() <= six_months_after:
                 sender_email = "gratisa1200@gmail.com"
                 sender_pass = "zolf herh wytf psmd"
