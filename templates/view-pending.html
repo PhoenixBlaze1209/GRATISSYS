@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pending Registrations - Gratis Attendance</title>
+  <title>Pending Registrations - GENServe Attendance</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="flex bg-gray-100 min-h-screen">
@@ -11,20 +11,47 @@
   <!-- Sidebar -->
   <aside class="w-64 bg-gradient-to-b from-red-600 to-rose-600 text-white flex flex-col p-6 fixed h-screen">
     <h2 class="text-2xl font-extrabold mb-8">Gratis Admin</h2>
-    <nav class="flex flex-col space-y-4">
-      <a href="{{ url_for('admin_dashboard') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📊 Dashboard</a>
-      <a href="{{ url_for('view_pending') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📝 Pending Registration</a>
-      <a href="{{ url_for('view_logs') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📑 View Logs</a>
-      <a href="{{ url_for('view_status_history') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📜 Status History</a>
-      <a href="{{ url_for('logoutA') }}" class="mt-auto bg-white text-red-600 font-semibold px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition">🚪 Logout</a>
+    <nav class="flex flex-col space-y-4 flex-1">
+        <a href="{{ url_for('admin_dashboard') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📊 Dashboard</a>
+        <a href="{{ url_for('view_pending') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📝 Pending Registration</a>
+        <a href="{{ url_for('view_logs') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📑 View Logs</a>
+        <a href="{{ url_for('view_status_history') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📜 Status History</a>
+        <a href="{{ url_for('add_cs_hours') }}" 
+          class="hover:bg-white/20 px-4 py-2 rounded-lg transition">
+          🧹 Manage CS Hours
+        </a>
     </nav>
+    
+    <div class="mt-auto pt-6 border-t border-white/20">
+        <a href="{{ url_for('export_all_attendance') }}" 
+           class="w-full bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-md transition text-center font-semibold block">
+            📊 Export All Attendance (CSV)
+        </a>
+        <a href="{{ url_for('logoutA') }}" 
+           class="mt-4 w-full bg-white text-red-600 font-semibold px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition text-center block">
+            🚪 Logout
+        </a>
+    </div>
   </aside>
 
   <!-- Main Content -->
   <main class="ml-64 p-8 flex-1">
     
     <!-- Page Title -->
-    <h1 class="text-3xl font-bold text-gray-800 mb-6">Pending Student Registrations</h1>
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-3xl font-bold text-gray-800">Pending Student Registrations</h1>
+
+      {% if pending_users %}
+      <!-- Approve All button -->
+      <form action="{{ url_for('approve_all') }}" method="POST"
+            onsubmit="return confirm('Approve all pending students?');">
+        <button type="submit"
+                class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md text-sm font-semibold">
+          ✅ Approve All Pending
+        </button>
+      </form>
+      {% endif %}
+    </div>
 
     <!-- 🔔 Flash Notification -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -35,7 +62,7 @@
                  {% if category == 'success' %} style="background-color: #22c55e" 
                  {% elif category == 'error' %} style="background-color: #ef4444"
                  {% else %} style="background-color: #6b7280" {% endif %}>
-              {{ message }}
+             {{ message }}
             </div>
           {% endfor %}
         </div>
@@ -117,7 +144,6 @@
   </div>
 
   <script>
-    // Approve modal functions
     function openApproveModal(userId, fullName) {
       const modal = document.getElementById("approveModal");
       const form = document.getElementById("approveForm");
@@ -127,7 +153,6 @@
       modal.classList.remove("hidden");
     }
 
-    // Reject modal functions
     function openRejectModal(userId) {
       const modal = document.getElementById("rejectModal");
       const form = document.getElementById("rejectForm");
@@ -135,7 +160,6 @@
       modal.classList.remove("hidden");
     }
 
-    // Close modals
     function closeModal(id) {
       document.getElementById(id).classList.add("hidden");
     }
@@ -147,7 +171,6 @@
       if (e.target === rejectModal) closeModal('rejectModal');
     }
 
-    // Flash auto-dismiss
     setTimeout(() => {
       const flashes = document.querySelectorAll('.flash');
       flashes.forEach(el => {

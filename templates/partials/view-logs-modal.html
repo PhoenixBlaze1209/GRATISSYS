@@ -2,21 +2,6 @@
   Attendance Logs for {{ student.full_name }} ({{ student.student_number }})
 </h2>
 
-    <!-- 🔔 Flash Notification -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div id="flash-container" class="fixed top-5 right-5 space-y-3 z-50">
-          {% for category, message in messages %}
-            <div class="flash p-3 rounded-lg shadow-lg text-white text-sm font-medium transition duration-500 transform"
-                 {% if category == 'success' %} style="background-color: #22c55e" 
-                 {% elif category == 'error' %} style="background-color: #ef4444"
-                 {% else %} style="background-color: #6b7280" {% endif %}>
-              {{ message }}
-            </div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
 
 {% if records %}
   <div class="overflow-x-auto bg-white rounded-xl shadow border border-gray-200">

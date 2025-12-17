@@ -3,22 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Dashboard - Gratis Attendance</title>
+  <title>Admin Dashboard - GENServe Attendance</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="flex bg-gray-100 min-h-screen">
 
   <!-- Sidebar -->
-  <aside class="w-64 bg-gradient-to-b from-red-600 to-rose-600 text-white flex flex-col p-6 fixed h-screen">
+<aside class="w-64 bg-gradient-to-b from-red-600 to-rose-600 text-white flex flex-col p-6 fixed h-screen">
     <h2 class="text-2xl font-extrabold mb-8">Gratis Admin</h2>
-    <nav class="flex flex-col space-y-4">
-      <a href="{{ url_for('admin_dashboard') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📊 Dashboard</a>
-      <a href="{{ url_for('view_pending') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📝 Pending Registration</a>
-      <a href="{{ url_for('view_logs') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📑 View Logs</a>
-      <a href="{{ url_for('view_status_history') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📜 Status History</a>
-      <a href="{{ url_for('logoutA') }}" class="mt-auto bg-white text-red-600 font-semibold px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition">🚪 Logout</a>
+    <nav class="flex flex-col space-y-4 flex-1">
+        <a href="{{ url_for('admin_dashboard') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📊 Dashboard</a>
+        <a href="{{ url_for('view_pending') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📝 Pending Registration</a>
+        <a href="{{ url_for('view_logs') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📑 View Logs</a>
+        <a href="{{ url_for('view_status_history') }}" class="hover:bg-white/20 px-4 py-2 rounded-lg transition">📜 Status History</a>
+        <a href="{{ url_for('add_cs_hours') }}" 
+          class="hover:bg-white/20 px-4 py-2 rounded-lg transition">
+          🧹 Manage CS Hours
+        </a>
+
     </nav>
-  </aside>
+    
+    <!-- Export button as a special highlighted action -->
+    <div class="mt-auto pt-6 border-t border-white/20">
+        <a href="{{ url_for('export_all_attendance') }}" 
+           class="w-full bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-md transition text-center font-semibold block">
+            📊 Export All Attendance (CSV)
+        </a>
+        <a href="{{ url_for('logoutA') }}" 
+           class="mt-4 w-full bg-white text-red-600 font-semibold px-4 py-2 rounded-lg shadow hover:bg-gray-100 transition text-center block">
+            🚪 Logout
+        </a>
+    </div>
+</aside>
+
 
   <!-- Main Content -->
   <main class="ml-64 p-8 flex-1">

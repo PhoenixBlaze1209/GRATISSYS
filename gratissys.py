@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify, Response
 import pymysql
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date, time, timedelta
@@ -177,12 +177,15 @@ def validate_qr():
     if not token:
         return jsonify({"status": "error", "message": "Invalid QR code."})
 
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-        # Step 1: Validate QR token and approval
-        cursor.execute("SELECT * FROM users WHERE qr_token=%s AND status='approved'", (token,))
+    try:
+        # Validate QR token
+        cursor.execute("""
+            SELECT * FROM users 
+            WHERE qr_token=%s AND status='approved'
+        """, (token,))
         user = cursor.fetchone()
 
         if not user:
@@ -190,106 +193,84 @@ def validate_qr():
 
         user_id = user['id']
         student_type = user['student_type']
+        assigned_duty = user.get('assigned_duty') or "General Services"
         today = date.today()
         now = datetime.now().time()
 
-        # Get assigned duty
-        assigned_duty = user.get('assigned_duty', "General Services")
-
-        # Check if there's already a record for today
-        cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND date=%s", (user_id, today))
+        # Get latest attendance today
+        cursor.execute("""
+            SELECT * FROM attendance
+            WHERE user_id=%s AND date=%s
+            ORDER BY id DESC
+            LIMIT 1
+        """, (user_id, today))
         record = cursor.fetchone()
 
-        # Default rule-based time windows
-        start_in = time(8, 0)
-        cutoff_in = time(8, 15)
-        start_out = time(17, 0)
-        cutoff_out = time(17, 15)
-
-        # -------------------------
-        # ✅ S.T.A.R.S STUDENTS (Flexible Schedule)
-        # -------------------------
+        # ===============================
+        # ===== S.T.A.R.S USERS =========
+        # ===============================
         if student_type == "S.T.A.R.S":
-            if not record:
-                # TIME IN (anytime)
+
+            # ---- TIME IN ----
+            if not record or record['time_out']:
                 cursor.execute("""
                     INSERT INTO attendance (user_id, date, time_in, assigned_duty)
                     VALUES (%s, %s, %s, %s)
-                """, (user_id, today, datetime.now().strftime("%H:%M:%S"), assigned_duty))
+                """, (
+                    user_id,
+                    today,
+                    datetime.now().strftime("%H:%M:%S"),
+                    assigned_duty
+                ))
                 conn.commit()
-                message = f"{user['full_name']} - Time In recorded successfully ✅"
+
+                return jsonify({
+                    "status": "success",
+                    "message": f"{user['full_name']} - Time In recorded ✅"
+                })
+
+            # ---- TIME OUT ----
+            time_in_value = record['time_in']
+
+            if isinstance(time_in_value, timedelta):
+                secs = int(time_in_value.total_seconds())
+                time_in_value = time(secs // 3600, (secs % 3600) // 60)
+            elif isinstance(time_in_value, str):
+                time_in_value = datetime.strptime(time_in_value, "%H:%M:%S").time()
+
+            time_in_dt = datetime.combine(today, time_in_value)
+            time_out_dt = datetime.combine(today, datetime.now().time())
+
+            # Deduct lunch
+            lunch_start = datetime.combine(today, time(12, 0))
+            lunch_end = datetime.combine(today, time(13, 0))
+
+            total_seconds = (time_out_dt - time_in_dt).total_seconds()
+            if time_in_dt < lunch_start < time_out_dt:
+                total_seconds -= 3600
+
+            # Rounding (same as /time_out)
+            base_hours = int(total_seconds // 3600)
+            remaining_minutes = int((total_seconds % 3600) // 60)
+
+            if 29 <= remaining_minutes <= 31:
+                total_hours = base_hours + 0.5
+            elif remaining_minutes >= 30:
+                total_hours = base_hours + 1
             else:
-                # TIME OUT (anytime)
-                if record['time_out']:
-                    return jsonify({"status": "error", "message": "You already timed out today."})
-
-                time_in_dt = datetime.combine(today, record['time_in'])
-                time_out_dt = datetime.combine(today, datetime.now().time())
-
-                # Deduct 1 hour if they worked through lunch (12–1)
-                lunch_start = datetime.combine(today, time(12, 0))
-                lunch_end = datetime.combine(today, time(13, 0))
-                total_seconds = (time_out_dt - time_in_dt).total_seconds()
-                if time_in_dt < lunch_start < time_out_dt:
-                    total_seconds -= 3600
-
-                total_hours = int(total_seconds // 3600)
-
-                cursor.execute("""
-                    UPDATE attendance
-                    SET time_out=%s, total_hours=%s
-                    WHERE id=%s
-                """, (datetime.now().strftime("%H:%M:%S"), total_hours, record['id']))
-
-                # Update rendered hours in tbl_schedule
-                cursor.execute("""
-                    INSERT INTO tbl_schedule (user_id, day, rendered_hours)
-                    VALUES (%s, %s, 0)
-                    ON DUPLICATE KEY UPDATE rendered_hours = (
-                        SELECT IFNULL(SUM(total_hours), 0)
-                        FROM attendance WHERE user_id = %s
-                    )
-                """, (user_id, today.strftime("%A"), user_id))
-                conn.commit()
-
-                message = f"{user['full_name']} - Time Out recorded ⏰ | Total Duty Hours: {total_hours} hrs"
-
-            return jsonify({"status": "success", "message": message})
-
-        # -------------------------
-        # ⏰ REGULAR STUDENTS (S.A., CS)
-        # -------------------------
-        if not record:
-            # TIME IN
-            if not (start_in <= now <= cutoff_in):
-                return jsonify({"status": "error", "message": "⏰ You can only time in between 8:00 and 8:15 AM."})
-
-            cursor.execute("""
-                INSERT INTO attendance (user_id, date, time_in, assigned_duty)
-                VALUES (%s, %s, %s, %s)
-            """, (user_id, today, start_in.strftime("%H:%M:%S"), assigned_duty))
-            conn.commit()
-            message = f"{user['full_name']} - Time In recorded at 8:00 AM ✅"
-
-        else:
-            # TIME OUT
-            if record['time_out']:
-                return jsonify({"status": "error", "message": "You already timed out today."})
-
-            if not (start_out <= now <= cutoff_out):
-                return jsonify({"status": "error", "message": "⏰ You can only time out between 5:00 and 5:15 PM."})
-
-            time_in_dt = datetime.combine(today, time(8, 0))
-            time_out_dt = datetime.combine(today, time(17, 0))
-
-            total_hours = int((time_out_dt - time_in_dt).total_seconds() // 3600) - 1  # deduct lunch
+                total_hours = base_hours
 
             cursor.execute("""
                 UPDATE attendance
                 SET time_out=%s, total_hours=%s
                 WHERE id=%s
-            """, (start_out.strftime("%H:%M:%S"), total_hours, record['id']))
+            """, (
+                datetime.now().strftime("%H:%M:%S"),
+                total_hours,
+                record['id']
+            ))
 
+            # Update schedule
             cursor.execute("""
                 INSERT INTO tbl_schedule (user_id, day, rendered_hours)
                 VALUES (%s, %s, 0)
@@ -298,19 +279,121 @@ def validate_qr():
                     FROM attendance WHERE user_id = %s
                 )
             """, (user_id, today.strftime("%A"), user_id))
+
             conn.commit()
 
-            message = f"{user['full_name']} - Time Out recorded at 5:00 PM ⏰ | Total Duty Hours: {total_hours} hrs"
+            return jsonify({
+                "status": "success",
+                "message": f"{user['full_name']} - Time Out recorded ⏰ | Total Hours: {total_hours} hrs"
+            })
 
-        return jsonify({"status": "success", "message": message})
+        # =================================
+        # ===== NON-S.T.A.R.S USERS ========
+        # =================================
+
+        # ---- BLOCK MULTIPLE SESSIONS ----
+        if record and not record['time_out']:
+            return jsonify({
+                "status": "error",
+                "message": "⚠️ You already timed in today."
+            })
+
+        # ---- TIME IN (NO CUT-OFF, ROUNDED) ----
+        if not record:
+            current_dt = datetime.now()
+            minute = current_dt.minute
+
+            if minute <= 30:
+                rounded_time = current_dt.replace(minute=0, second=0, microsecond=0)
+            else:
+                rounded_time = (current_dt + timedelta(hours=1)).replace(
+                    minute=0, second=0, microsecond=0
+                )
+
+            cursor.execute("""
+                INSERT INTO attendance (user_id, date, time_in, assigned_duty)
+                VALUES (%s, %s, %s, %s)
+            """, (
+                user_id,
+                today,
+                rounded_time.strftime("%H:%M:%S"),
+                assigned_duty
+            ))
+            conn.commit()
+
+            return jsonify({
+                "status": "success",
+                "message": f"{user['full_name']} - Time In recorded ✅"
+            })
+
+        # ---- TIME OUT (5:00–5:15 ONLY) ----
+        start_out = time(17, 0)
+        cutoff_out = time(17, 15)
+
+        if not (start_out <= now <= cutoff_out):
+            return jsonify({
+                "status": "error",
+                "message": "⏰ You can only time out between 5:00 and 5:15 PM."
+            })
+
+        time_in_value = record['time_in']
+        if isinstance(time_in_value, str):
+            time_in_value = datetime.strptime(time_in_value, "%H:%M:%S").time()
+
+        time_in_dt = datetime.combine(today, time_in_value)
+        time_out_dt = datetime.combine(today, datetime.now().time())
+
+        lunch_start = datetime.combine(today, time(12, 0))
+        lunch_end = datetime.combine(today, time(13, 0))
+
+        total_seconds = (time_out_dt - time_in_dt).total_seconds()
+        if time_in_dt < lunch_start < time_out_dt:
+            total_seconds -= 3600
+
+        base_hours = int(total_seconds // 3600)
+        remaining_minutes = int((total_seconds % 3600) // 60)
+
+        if 29 <= remaining_minutes <= 31:
+            total_hours = base_hours + 0.5
+        elif remaining_minutes >= 30:
+            total_hours = base_hours + 1
+        else:
+            total_hours = base_hours
+
+        cursor.execute("""
+            UPDATE attendance
+            SET time_out=%s, total_hours=%s
+            WHERE id=%s
+        """, (
+            datetime.now().strftime("%H:%M:%S"),
+            total_hours,
+            record['id']
+        ))
+
+        cursor.execute("""
+            INSERT INTO tbl_schedule (user_id, day, rendered_hours)
+            VALUES (%s, %s, 0)
+            ON DUPLICATE KEY UPDATE rendered_hours = (
+                SELECT IFNULL(SUM(total_hours), 0)
+                FROM attendance WHERE user_id = %s
+            )
+        """, (user_id, today.strftime("%A"), user_id))
+
+        conn.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"{user['full_name']} - Time Out recorded ⏰ | Total Hours: {total_hours} hrs"
+        })
 
     except Exception as e:
-        print("Error in validate_qr:", e)
-        return jsonify({"status": "error", "message": "⚠️ Server error while processing attendance."})
+        print("QR ERROR:", e)
+        return jsonify({"status": "error", "message": "⚠️ Server error occurred."})
 
     finally:
         cursor.close()
         conn.close()
+
 
 
 # ------------------ Login Handlers ------------------ #
@@ -483,6 +566,97 @@ def view_pending():
 
     return render_template('view-pending.html', pending_users=pending_users)
 
+@app.route('/approve-all', methods=['POST'])
+def approve_all():
+    if session.get('role') != 'admin':
+        return redirect(url_for('admin_login'))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Get all pending students
+    cursor.execute("""
+        SELECT id, email, full_name
+        FROM users
+        WHERE role = 'student' AND status = 'pending'
+    """)
+    pending_users = cursor.fetchall()
+
+    if not pending_users:
+        flash("No pending students to approve.", "info")
+        cursor.close()
+        conn.close()
+        return redirect(url_for('view_pending'))
+
+    try:
+        for student in pending_users:
+            user_id = student['id']
+            email = student['email']
+            full_name = student['full_name']
+
+            # Generate QR token
+            qrtoken = secrets.token_hex(16)
+
+            # Approve user and save QR
+            cursor.execute("""
+                UPDATE users
+                SET status = 'approved', qr_token = %s
+                WHERE id = %s
+            """, (qrtoken, user_id))
+
+            # Insert into status_history
+            cursor.execute("""
+                INSERT INTO status_history (user_id, status, date)
+                VALUES (%s, 'approved', CURDATE())
+            """, (user_id,))
+
+            # Generate QR image (same logic as single approve)
+            qrimg = qrcode.make(qrtoken)
+            imgbuffer = BytesIO()
+            qrimg.save(imgbuffer, format='PNG')
+            imgbuffer.seek(0)
+
+            # Send email
+            sender_email = "gratisa1200@gmail.com"
+            sender_pass = "zolf herh wytf psmd"
+
+            msg = MIMEMultipart()
+            msg["From"] = sender_email
+            msg["To"] = email
+            msg["Subject"] = "Your Gratis Attendance Account Has Been Approved!"
+
+            body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.5;">
+                <h2 style="color:#e74c3c;">Hello, {full_name}!</h2>
+                <p>Your <strong>Gratis Attendance</strong> account has been <b>approved</b>.</p>
+                <p>You can now use the attached QR code to <b>time in and time out</b>.</p>
+                <p style="color:red;"><b>Please do not share your QR code with anyone.</b></p>
+                <br>
+                <p>Best regards,<br><strong>General Services Department</strong></p>
+            </body>
+            </html>
+            """
+            msg.attach(MIMEText(body, "html"))
+
+            qrimage = MIMEImage(imgbuffer.read(), _subtype="png")
+            qrimage.add_header("Content-Disposition", "attachment", filename="qrcode.png")
+            msg.attach(qrimage)
+
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                smtp.login(sender_email, sender_pass)
+                smtp.send_message(msg)
+
+        conn.commit()
+        flash("All pending students approved and QR codes emailed successfully!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Approve all failed: {str(e)}", "danger")
+    finally:
+        cursor.close()
+        conn.close()
+
+    return redirect(url_for('view_pending'))
 
 
 @app.route('/approve-student/<int:user_id>')
@@ -883,6 +1057,61 @@ def send_pdf_via_email(student, pdf_data):
         server.login(from_email, password) 
         server.send_message(msg)
 
+@app.route('/export-all-attendance', methods=['GET'])
+def export_all_attendance():
+    if session.get('role') != 'admin':
+        return redirect(url_for('admin_login'))
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Fetch all attendance records with user details
+    cursor.execute("""
+        SELECT u.full_name, u.student_number, u.student_type, u.program, 
+               u.year_level, a.date, a.assigned_duty, a.time_in, a.time_out, 
+               a.total_hours
+        FROM attendance a
+        JOIN users u ON a.user_id = u.id
+        ORDER BY a.date DESC, u.full_name ASC
+    """)
+    records = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    if not records:
+        flash("No attendance records to export.", "warning")
+        return redirect(url_for('admin_dashboard'))
+
+    # Build CSV content
+    lines = [
+        "Full Name,Student Number,Student Type,Program,Year Level,Date,"
+        "Assigned Duty,Time In,Time Out,Total Hours"
+    ]
+
+    for r in records:
+        line = (
+            f'"{r["full_name"]}",{r["student_number"]},"{r["student_type"]}",'
+            f'"{r["program"]}","{r["year_level"]}",{r["date"]},'
+            f'"{r["assigned_duty"]}",{r["time_in"]},{r["time_out"]},{r["total_hours"]}'
+        )
+        lines.append(line)
+
+    csv_data = "\n".join(lines)
+
+    # Send as downloadable CSV
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"gratis_attendance_all_{timestamp}.csv"
+    
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        },
+    )
+
 @app.route('/view-status-history')
 def view_status_history():
     if session.get('role') != 'admin':
@@ -904,6 +1133,213 @@ def view_status_history():
 
     return render_template('view-status-history.html', history=history)
 
+@app.route('/cs-time-in', methods=['POST'])
+def cs_time_in():
+    if 'user_id' not in session or session.get('role') != 'student':
+        return redirect(url_for('student_login'))
+
+    today = date.today()
+    now = datetime.now().time()
+    user_id = session['user_id']
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Fetch user details
+    cursor.execute("SELECT student_type, assigned_duty FROM users WHERE id=%s", (user_id,))
+    user = cursor.fetchone()
+
+    if not user:
+        flash("⚠️ User not found.", "danger")
+        cursor.close()
+        conn.close()
+        return redirect(url_for('student_login'))
+
+    student_type = user['student_type']
+    assigned_duty = user['assigned_duty'] or "Unassigned"
+
+    # Check existing CS record for today (latest)
+    cursor.execute("""
+        SELECT *
+        FROM attendance
+        WHERE user_id=%s AND date=%s AND is_cs=1
+        ORDER BY id DESC
+        LIMIT 1
+    """, (user_id, today))
+    record = cursor.fetchone()
+
+    if record and record['time_in'] and not record['time_out']:
+        flash("⚠️ You already have an active CS session. Please time out first.", "warning")
+        cursor.close()
+        conn.close()
+        return redirect(url_for('student_dashboard'))
+
+    # CS: no time restriction, keep exact time in
+    fixed_time_in = datetime.now().strftime("%H:%M:%S")
+
+    cursor.execute("""
+        INSERT INTO attendance (user_id, date, time_in, assigned_duty, is_cs)
+        VALUES (%s, %s, %s, %s, 1)
+    """, (user_id, today, fixed_time_in, assigned_duty))
+    conn.commit()
+
+    flash(f"✅ CS Time in recorded at {fixed_time_in}", "success")
+
+    cursor.close()
+    conn.close()
+    return redirect(url_for('student_dashboard'))
+
+@app.route('/cs-time-out', methods=['POST'])
+def cs_time_out():
+    if 'user_id' not in session or session.get('role') != 'student':
+        return redirect(url_for('student_login'))
+
+    today = date.today()
+    now = datetime.now().time()
+    user_id = session['user_id']
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Fetch user details
+    cursor.execute("SELECT * FROM users WHERE id=%s", (user_id,))
+    user = cursor.fetchone()
+    student_type = user['student_type']
+
+    # Get latest CS attendance record for today
+    cursor.execute("""
+        SELECT *
+        FROM attendance
+        WHERE user_id=%s AND DATE(date)=%s AND is_cs=1
+        ORDER BY id DESC
+        LIMIT 1
+    """, (user_id, today))
+    record = cursor.fetchone()
+
+    if not record or not record['time_in']:
+        flash("⚠️ You must time in for CS before you can time out.", "danger")
+    elif record['time_out']:
+        flash("⚠️ You already timed out this CS session.", "warning")
+    else:
+        # For CS: no 5:00–5:15 restriction, no early flag needed
+
+        time_in_value = record['time_in']
+        if isinstance(time_in_value, timedelta):
+            total_seconds_in = int(time_in_value.total_seconds())
+            hours = total_seconds_in // 3600
+            minutes = (total_seconds_in % 3600) // 60
+            time_in_value = time(hours, minutes)
+
+        # Compute total duration
+        time_in_dt = datetime.combine(today, time_in_value)
+        time_out_dt = datetime.combine(today, datetime.now().time())
+
+        # Deduct lunch (12:00–13:00)
+        lunch_start = datetime.combine(today, time(12, 0))
+        lunch_end = datetime.combine(today, time(13, 0))
+
+        total_seconds = (time_out_dt - time_in_dt).total_seconds()
+        if time_in_dt < lunch_start < time_out_dt:
+            total_seconds -= 3600
+
+        if total_seconds < 0:
+            total_seconds = 0
+
+        # Rounding logic (same as scholar)
+        base_hours = int(total_seconds // 3600)
+        remaining_minutes = int((total_seconds % 3600) // 60)
+
+        if 29 <= remaining_minutes <= 31:
+            total_hours = base_hours + 0.5
+        else:
+            if remaining_minutes >= 30:
+                total_hours = base_hours + 1
+            else:
+                total_hours = base_hours
+
+        # Update CS attendance row
+        cursor.execute("""
+            UPDATE attendance
+            SET time_out=%s, total_hours=%s
+            WHERE id=%s
+        """, (datetime.now().strftime("%H:%M:%S"), total_hours, record['id']))
+
+        # Recompute total CS hours from attendance (is_cs = 1)
+        cursor.execute("""
+            SELECT IFNULL(SUM(total_hours), 0) AS cs_total
+            FROM attendance
+            WHERE user_id = %s AND is_cs = 1
+        """, (user_id,))
+        row = cursor.fetchone()
+        cs_total = row['cs_total'] if row else 0
+
+        # Save to users.cs_rendered (make sure you added this column)
+        cursor.execute("""
+            UPDATE users
+            SET cs_rendered = %s
+            WHERE id = %s
+        """, (cs_total, user_id))
+
+        conn.commit()
+
+        flash(f"✅ CS Time out recorded. CS hours this session: {total_hours} hrs", "success")
+
+    cursor.close()
+    conn.close()
+    return redirect(url_for('student_dashboard'))
+
+
+
+@app.route('/add-cs-hours', methods=['GET', 'POST'])
+def add_cs_hours():
+    if session.get('role') != 'admin':
+        return redirect(url_for('admin_login'))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+
+    # Load students list for the dropdown (include cs_required and cs_rendered for display)
+    cursor.execute("""
+        SELECT id, full_name, student_number, cs_required, cs_rendered 
+        FROM users 
+        WHERE role = 'student'
+    """)
+    students = cursor.fetchall()
+
+    if request.method == 'POST':
+        user_id = request.form.get('user_id')
+        date_str = request.form.get('date')
+        cs_required = request.form.get('cs_required')
+        remarks = request.form.get('remarks')
+
+        if not user_id or not date_str or not cs_required:
+            flash("All fields except remarks are required.", "error")
+        else:
+            try:
+                # Update users.cs_required
+                cursor.execute("""
+                    UPDATE users 
+                    SET cs_required = %s 
+                    WHERE id = %s
+                """, (float(cs_required), user_id))
+                
+                # Optional: Log the change for audit trail
+                cursor.execute("""
+                    INSERT INTO cs_requirements_log (user_id, date, cs_required, remarks)
+                    VALUES (%s, %s, %s, %s)
+                """, (user_id, date_str, float(cs_required), remarks or ''))
+                
+                conn.commit()
+                flash(f"CS requirement set to {cs_required} hours for the selected student.", "success")
+            except Exception as e:
+                conn.rollback()
+                flash(f"Failed to update CS requirement: {str(e)}", "error")
+
+    cursor.close()
+    conn.close()
+
+    return render_template('add-cs-hours.html', students=students)
+
 
 @app.route('/student-dashboard')
 def student_dashboard():
@@ -912,14 +1348,19 @@ def student_dashboard():
 
     today = date.today()
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor()   # this is already DictCursor from get_db_connection
 
     cursor.execute("SELECT * FROM users WHERE id=%s", (session['user_id'],))
     student = cursor.fetchone()
-    
 
-
-    cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND date=%s", (session['user_id'], today))
+    # Latest attendance record for today
+    cursor.execute("""
+        SELECT *
+        FROM attendance
+        WHERE user_id=%s AND date=%s
+        ORDER BY id DESC
+        LIMIT 1
+    """, (session['user_id'], today))
     today_record = cursor.fetchone()
 
     cursor.execute("""
@@ -933,6 +1374,17 @@ def student_dashboard():
     cursor.execute("SELECT * FROM tbl_schedule WHERE user_id=%s", (session['user_id'],))
     schedule = cursor.fetchone()
 
+    # NEW: CS total (use dict key, not index 0)
+    cursor.execute("""
+        SELECT IFNULL(SUM(hours), 0) AS cs_total
+        FROM cs_hours
+        WHERE user_id = %s
+    """, (session['user_id'],))
+    # NEW: CS from users table (rendered + remaining)
+    cs_rendered = student.get('cs_rendered') or 0
+    cs_required = student.get('cs_required') or 0
+    remaining_cs = max(0, cs_required - cs_rendered)
+
     cursor.close()
     conn.close()
 
@@ -942,10 +1394,19 @@ def student_dashboard():
         today_record=today_record,
         attendance=attendance,
         schedule=schedule,
+        cs_total=cs_rendered,      # for backward compatibility in template
+        remaining_cs=remaining_cs,
         current_time=datetime.now().strftime('%H:%M:%S')
     )
 
+
+
+
 # ------------------ Time In/Out without Restrictions ------------------ #
+
+# ------------------ Time In/Out WITHOUT RESTRICTIONS (SAMPLE) ------------------ #
+# Uncomment these two routes when you want no restrictions and comment out
+# the restricted versions above.
 
 # @app.route('/time_in', methods=['POST'])
 # def time_in():
@@ -953,109 +1414,139 @@ def student_dashboard():
 #         return redirect(url_for('student_login'))
 
 #     today = date.today()
+#     user_id = session['user_id']
+
 #     conn = get_db_connection()
 #     cursor = conn.cursor()
-#         # TEMP: Disable time restriction for testing
-#     # now = datetime.now().time()
-#     # start_time = time(8, 0)
-#     # cutoff_time = time(8, 15)
-#     # if not (start_time <= now <= cutoff_time):
-#     #     flash("You can only time in between 8:00 and 8:15 AM.", "danger")
-#     #     return redirect(url_for('student_dashboard'))
 
-#     # Check if already timed in today
-#     cursor.execute("""
-#         SELECT * FROM attendance
-#         WHERE user_id=%s AND date=%s
-#     """, (session['user_id'], today))
+#     # Fetch user details
+#     cursor.execute("SELECT student_type, assigned_duty FROM users WHERE id=%s", (user_id,))
+#     user = cursor.fetchone()
+
+#     if not user:
+#         flash("⚠️ User not found.", "danger")
+#         cursor.close()
+#         conn.close()
+#         return redirect(url_for('student_login'))
+
+#     student_type = user['student_type']
+#     assigned_duty = user['assigned_duty'] or "Unassigned"
+
+#     # Check existing record for today
+#     cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND date=%s", (user_id, today))
 #     record = cursor.fetchone()
 #     if record:
-#         flash("You already timed in today.", "warning")
+#         flash("⚠️ You already timed in today.", "warning")
 #         cursor.close()
 #         conn.close()
 #         return redirect(url_for('student_dashboard'))
 
-    
-#     cursor.execute("SELECT assigned_duty FROM users WHERE id=%s", (session['user_id'],))
-#     duty_row = cursor.fetchone()
-#     assigned_duty = duty_row['assigned_duty'] if duty_row else "Unassigned"
+#     # Same rounding logic, but NO time window restriction
+#     if student_type == "S.T.A.R.S":
+#         fixed_time_in = datetime.now().strftime("%H:%M:%S")
+#     else:
+#         current_dt = datetime.now()
+#         minute = current_dt.minute
 
-    
+#         if minute <= 30:
+#             rounded_hour = current_dt.replace(minute=0, second=0, microsecond=0)
+#         else:
+#             rounded_hour = (current_dt + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+
+#         fixed_time_in = rounded_hour.strftime("%H:%M:%S")
+
 #     cursor.execute("""
 #         INSERT INTO attendance (user_id, date, time_in, assigned_duty)
 #         VALUES (%s, %s, %s, %s)
-#     """, (session['user_id'], today, datetime.now().strftime("%H:%M:%S"), assigned_duty))
-
+#     """, (user_id, today, fixed_time_in, assigned_duty))
 #     conn.commit()
+
+#     flash(f"✅ [NO RESTRICTION] Time in recorded at {fixed_time_in}", "success")
+
 #     cursor.close()
 #     conn.close()
-
-#     flash("Time in recorded successfully!", "success")
 #     return redirect(url_for('student_dashboard'))
 
-
-
-
-
-# def to_time(value):
-#     """Convert MySQL TIME (possibly timedelta) to datetime.time."""
-#     if isinstance(value, timedelta):
-#         total_seconds = value.total_seconds()
-#         hours = int(total_seconds // 3600)
-#         minutes = int((total_seconds % 3600) // 60)
-#         seconds = int(total_seconds % 60)
-#         return time(hours, minutes, seconds)
-#     return value
 
 # @app.route('/time_out', methods=['POST'])
 # def time_out():
 #     if 'user_id' not in session:
 #         return redirect(url_for('student_login'))
 
-#     user_id = session['user_id']
 #     today = date.today()
+#     user_id = session['user_id']
 
 #     conn = get_db_connection()
 #     cursor = conn.cursor()
 
-#     cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND date=%s", (user_id, today))
+#     # early flag can stay, but here it has no effect on restrictions
+#     is_early = request.form.get("early") == "1"
+
+#     # Fetch user details
+#     cursor.execute("SELECT * FROM users WHERE id=%s", (user_id,))
+#     user = cursor.fetchone()
+#     student_type = user['student_type']
+
+#     cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND DATE(date)=%s", (user_id, today))
 #     record = cursor.fetchone()
 
 #     if not record or not record['time_in']:
-#         flash("You must time in before you can time out.", "danger")
+#         flash("⚠️ You must time in before you can time out.", "danger")
 #     elif record['time_out']:
-#         flash("You already timed out today.", "warning")
+#         flash("⚠️ You already timed out today.", "warning")
 #     else:
-#         time_in_dt = datetime.combine(today, to_time(record['time_in']))
+#         # NO 5:00–5:15 restriction here
+
+#         time_in_value = record['time_in']
+#         if isinstance(time_in_value, timedelta):
+#             total_seconds_in = int(time_in_value.total_seconds())
+#             hours = total_seconds_in // 3600
+#             minutes = (total_seconds_in % 3600) // 60
+#             time_in_value = time(hours, minutes)
+
+#         # Compute total duration
+#         time_in_dt = datetime.combine(today, time_in_value)
 #         time_out_dt = datetime.combine(today, datetime.now().time())
 
+#         # Deduct lunch (12:00–13:00)
 #         lunch_start = datetime.combine(today, time(12, 0))
 #         lunch_end = datetime.combine(today, time(13, 0))
 
 #         total_seconds = (time_out_dt - time_in_dt).total_seconds()
 #         if time_in_dt < lunch_start < time_out_dt:
-#             total_seconds -= 3600  # Subtract lunch break
+#             total_seconds -= 3600
 
-#         total_hours = int(total_seconds // 3600)
+#         if total_seconds < 0:
+#             total_seconds = 0
+
+#         # Rounding logic: :30 → .5, others to nearest hour
+#         base_hours = int(total_seconds // 3600)
+#         remaining_minutes = int((total_seconds % 3600) // 60)
+
+#         if 29 <= remaining_minutes <= 31:
+#             total_hours = base_hours + 0.5
+#         else:
+#             if remaining_minutes >= 30:
+#                 total_hours = base_hours + 1
+#             else:
+#                 total_hours = base_hours
 
 #         cursor.execute("""
 #             UPDATE attendance
 #             SET time_out=%s, total_hours=%s
 #             WHERE id=%s
 #         """, (datetime.now().strftime("%H:%M:%S"), total_hours, record['id']))
-#         conn.commit()
 
-        
+#         # Update tbl_schedule
 #         cursor.execute("SELECT * FROM tbl_schedule WHERE user_id = %s", (user_id,))
 #         schedule = cursor.fetchone()
 #         if not schedule:
 #             cursor.execute("""
 #                 INSERT INTO tbl_schedule (user_id, day, rendered_hours)
 #                 VALUES (%s, %s, 0)
-#             """, (user_id, today.strftime("%A")))   
+#             """, (user_id, today.strftime("%A")))
 #             conn.commit()
 
-       
 #         cursor.execute("""
 #             UPDATE tbl_schedule 
 #             SET rendered_hours = (
@@ -1064,14 +1555,65 @@ def student_dashboard():
 #                 WHERE user_id = %s
 #             )
 #             WHERE user_id = %s
-#         """, (session['user_id'], session['user_id']))
+#         """, (user_id, user_id))
 #         conn.commit()
 
-#         flash("Time out recorded successfully!", "success")
+#         # You can keep or remove the 60-hour email logic here as needed
+#         cursor.execute("""
+#             SELECT u.email, u.full_name, u.student_type, u.created_at, s.rendered_hours
+#             FROM users u
+#             JOIN tbl_schedule s ON u.id = s.user_id
+#             WHERE u.id = %s
+#         """, (user_id,))
+#         user_data = cursor.fetchone()
+
+#         if user_data:
+#             rendered_hours = user_data['rendered_hours']
+#             created_at = user_data['created_at']
+
+#             if isinstance(created_at, datetime):
+#                 created_at = created_at.date()
+
+#             email = user_data['email']
+#             full_name = user_data['full_name']
+#             student_type = user_data['student_type']
+
+#             six_months_after = created_at + timedelta(days=180)
+
+#             if student_type in ("S.A", "Housekeeping", "S.T.A.R.S") and rendered_hours >= 60 and date.today() <= six_months_after:
+#                 sender_email = "gratisa1200@gmail.com"
+#                 sender_pass = "zolf herh wytf psmd"
+
+#                 msg = MIMEMultipart()
+#                 msg["From"] = sender_email
+#                 msg["To"] = email
+#                 msg["Subject"] = "🎉 Congratulations! You’ve Completed Your 60 Hours"
+
+#                 body = f"""
+#                 <html>
+#                 <body style="font-family: Arial, sans-serif; line-height: 1.5;">
+#                     <h2 style="color:#e74c3c;">Congratulations, {full_name}!</h2>
+#                     <p>You’ve successfully rendered <b>60 hours</b> of duty under the Gratis Attendance program.</p>
+#                     <p>Your hard work and dedication are greatly appreciated. Please report to your coordinator for clearance processing.</p>
+#                     <br>
+#                     <p>Best regards,<br><strong>General Services Department</strong></p>
+#                 </body>
+#                 </html>
+#                 """
+#                 msg.attach(MIMEText(body, "html"))
+
+#                 with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+#                     smtp.login(sender_email, sender_pass)
+#                     smtp.send_message(msg)
+
+#                 flash("🎉 You have completed 60 hours! Email notification sent successfully!", "success")
+
+#         flash(f"✅ [NO RESTRICTION] Time out recorded. Total hours: {total_hours} hrs", "success")
 
 #     cursor.close()
 #     conn.close()
 #     return redirect(url_for('student_dashboard'))
+
 
 
 
@@ -1114,49 +1656,64 @@ def time_in():
     student_type = user['student_type']
     assigned_duty = user['assigned_duty'] or "Unassigned"
 
-    # Restriction for NON-S.T.A.R.S users
-    if student_type != "S.T.A.R.S" :
-        start_time = time(8, 0)
-        cutoff_time = time(8, 15)
-        if not (start_time <= now <= cutoff_time):
-            flash("⏰ You can only time in between 8:00 and 8:15 AM.", "danger")
+    # For NON-S.T.A.R.S users: allow any time <= 8:30, but store as rounded hour
+    # S.T.A.R.S → no time-in restriction (can time in anytime)
+
+
+    # Check existing record for today (latest record)
+    cursor.execute("""
+        SELECT *
+        FROM attendance
+        WHERE user_id=%s AND date=%s
+        ORDER BY id DESC
+        LIMIT 1
+    """, (user_id, today))
+    record = cursor.fetchone()
+
+    # For NON-S.T.A.R.S: only one time-in per day
+    # For S.T.A.R.S: allow multiple time-ins as long as the last one is completed (has time_out)
+    if record:
+        if student_type != "S.T.A.R.S":
+            flash("⚠️ You already timed in today.", "warning")
             cursor.close()
             conn.close()
             return redirect(url_for('student_dashboard'))
+        else:
+            # S.T.A.R.S: if last record has no time_out, block; otherwise allow new time in
+            if not record['time_out']:
+                flash("⚠️ You already have an active duty session. Please time out first.", "warning")
+                cursor.close()
+                conn.close()
+                return redirect(url_for('student_dashboard'))
 
-    # Check existing record for today
-    cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND date=%s", (user_id, today))
-    record = cursor.fetchone()
-    if record:
-        flash("⚠️ You already timed in today.", "warning")
-        cursor.close()
-        conn.close()
-        return redirect(url_for('student_dashboard'))
+    # --- ROUNDING LOGIC FOR TIME IN ---
+    if student_type == "S.T.A.R.S":
+        # S.T.A.R.S → keep exact time in
+        fixed_time_in = datetime.now().strftime("%H:%M:%S")
+    else:
+        # Non-S.T.A.R.S → round to nearest hour:
+        # <= 8:30 → 8:00, > 8:30 would have been blocked above
+        current_dt = datetime.now()
+        minute = current_dt.minute
 
-    # Determine proper time_in
-    fixed_time_in = (
-        datetime.now().strftime("%H:%M:%S")  # S.T.A.R.S → any time allowed
-        if student_type == "S.T.A.R.S"
-        else time(8, 0).strftime("%H:%M:%S")  # Others → fixed at 8:00 AM
-    )
+        if minute <= 30:
+            rounded_hour = current_dt.replace(minute=0, second=0, microsecond=0)
+        else:
+            rounded_hour = (current_dt + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
 
-    # Insert time-in record
+        fixed_time_in = rounded_hour.strftime("%H:%M:%S")
+
     cursor.execute("""
         INSERT INTO attendance (user_id, date, time_in, assigned_duty)
         VALUES (%s, %s, %s, %s)
     """, (user_id, today, fixed_time_in, assigned_duty))
     conn.commit()
 
-    # Confirmation message
-    if student_type == "S.T.A.R.S":
-        flash(f"✅ Time in recorded successfully at {fixed_time_in}", "success")
-    else:
-        flash("✅ Time in recorded as 8:00 AM", "success")
+    flash(f"✅ Time in recorded at {fixed_time_in}", "success")
 
     cursor.close()
     conn.close()
-    return redirect(url_for('student_dashboard'))   
-
+    return redirect(url_for('student_dashboard'))
 
 
 @app.route('/time_out', methods=['POST'])
@@ -1171,12 +1728,22 @@ def time_out():
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    # Check if this is an early-out request (from the Early Time Out button)
+    is_early = request.form.get("early") == "1"
+
     # Fetch user details
     cursor.execute("SELECT * FROM users WHERE id=%s", (user_id,))
     user = cursor.fetchone()
     student_type = user['student_type']
 
-    cursor.execute("SELECT * FROM attendance WHERE user_id=%s AND DATE(date)=%s", (user_id, today))
+    # Get latest attendance record for today
+    cursor.execute("""
+        SELECT *
+        FROM attendance
+        WHERE user_id=%s AND DATE(date)=%s
+        ORDER BY id DESC
+        LIMIT 1
+    """, (user_id, today))
     record = cursor.fetchone()
 
     if not record or not record['time_in']:
@@ -1184,7 +1751,9 @@ def time_out():
     elif record['time_out']:
         flash("⚠️ You already timed out today.", "warning")
     else:
-        if student_type != "S.T.A.R.S":
+        # Time-out restriction for NON-S.T.A.R.S
+        # S.T.A.R.S → no time restriction, can time out anytime
+        if student_type != "S.T.A.R.S" and not is_early:
             start_out = time(17, 0)
             cutoff_out = time(17, 15)
             if not (start_out <= now <= cutoff_out):
@@ -1195,23 +1764,41 @@ def time_out():
 
         time_in_value = record['time_in']
         if isinstance(time_in_value, timedelta):
-            total_seconds = int(time_in_value.total_seconds())
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
+            total_seconds_in = int(time_in_value.total_seconds())
+            hours = total_seconds_in // 3600
+            minutes = (total_seconds_in % 3600) // 60
             time_in_value = time(hours, minutes)
 
-        # Compute total hours
+        # Compute total duration
         time_in_dt = datetime.combine(today, time_in_value)
         time_out_dt = datetime.combine(today, datetime.now().time())
 
+        # Deduct lunch (12:00–13:00)
         lunch_start = datetime.combine(today, time(12, 0))
         lunch_end = datetime.combine(today, time(13, 0))
 
         total_seconds = (time_out_dt - time_in_dt).total_seconds()
         if time_in_dt < lunch_start < time_out_dt:
-            total_seconds -= 3600  
+            total_seconds -= 3600
 
-        total_hours = int(total_seconds // 3600)
+        if total_seconds < 0:
+            total_seconds = 0
+
+        # ----- NEW ROUNDING LOGIC -----
+        # Base hours and minutes part
+        base_hours = int(total_seconds // 3600)
+        remaining_minutes = int((total_seconds % 3600) // 60)
+
+        # Rule:
+        # - if the exit minute is exactly around :30  -> add 0.5 hour
+        # - if not :30, round to nearest full hour (e.g. :50 => +1 hour)
+        if 29 <= remaining_minutes <= 31:
+            total_hours = base_hours + 0.5
+        else:
+            if remaining_minutes >= 30:
+                total_hours = base_hours + 1
+            else:
+                total_hours = base_hours
 
         # Update attendance
         cursor.execute("""
@@ -1241,7 +1828,7 @@ def time_out():
         """, (user_id, user_id))
         conn.commit()
 
-        # check total rendered hours
+        # check total rendered hours (unchanged logic)
         cursor.execute("""
             SELECT u.email, u.full_name, u.student_type, u.created_at, s.rendered_hours
             FROM users u
@@ -1263,7 +1850,7 @@ def time_out():
 
             six_months_after = created_at + timedelta(days=180)
 
-            if student_type in ("S.A", "Housekeeping") and rendered_hours >= 60 and date.today() <= six_months_after:
+            if student_type in ("SA", "Housekeeping", "S.T.A.R.S") and rendered_hours >= 60 and date.today() <= six_months_after:
                 sender_email = "gratisa1200@gmail.com"
                 sender_pass = "zolf herh wytf psmd"
 
@@ -1296,6 +1883,10 @@ def time_out():
     cursor.close()
     conn.close()
     return redirect(url_for('student_dashboard'))
+
+
+
+
 
 
 # ------------------ Logout ------------------ #
